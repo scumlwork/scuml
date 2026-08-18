@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, type ChangeEvent } from 'react';
-import { Box, Button, Input, Text, VStack, Image } from '@chakra-ui/react';
+import { useState, useEffect, useRef, type ChangeEvent } from 'react';
+import { Box, Button, Input, Text, VStack, Image, Spinner, HStack } from '@chakra-ui/react';
 import { ViewIcon, ViewOffIcon } from '@chakra-ui/icons';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
@@ -17,6 +17,8 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [csrfToken, setCsrfToken] = useState('');
+  const [connectAttempts, setConnectAttempts] = useState(0);
+  const csrfAbort = useRef(false);
 
   // Step 2 — only superadmin accounts with 2FA set up ever reach this
   const [needsTotp, setNeedsTotp] = useState(false);
@@ -25,20 +27,34 @@ export default function LoginPage() {
   // ✅ Ensure axios always sends cookies + same-site headers
   axios.defaults.withCredentials = true;
 
-  // ✅ Fetch CSRF token once
+  // ✅ Fetch CSRF token, retrying on failure — free-tier hosting spins down
+  // after inactivity and can take 30-60+ seconds to wake back up on the next
+  // request. Without a retry, a single failed call here (hitting a
+  // still-waking backend) would leave the Login button permanently disabled
+  // with no explanation, which just looks broken.
   useEffect(() => {
+    csrfAbort.current = false;
+
     const fetchCsrf = async () => {
       try {
         const { data } = await axios.get(
           `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/csrf-token`,
           { withCredentials: true } // 🔑 make sure cookies flow
         );
-        setCsrfToken(data.csrfToken);
+        if (!csrfAbort.current) setCsrfToken(data.csrfToken);
       } catch (err) {
-        console.error('❌ Failed to fetch CSRF token:', err);
+        console.error('❌ Failed to fetch CSRF token, retrying:', err);
+        if (!csrfAbort.current) {
+          setConnectAttempts((n) => n + 1);
+          setTimeout(fetchCsrf, 3000);
+        }
       }
     };
     fetchCsrf();
+
+    return () => {
+      csrfAbort.current = true;
+    };
   }, []);
 
   // ✅ If already logged in, redirect
@@ -213,6 +229,17 @@ export default function LoginPage() {
             </Box>
 
             {error && <Text color="red.400">{error}</Text>}
+
+            {!csrfToken && (
+              <HStack spacing={2} color="gray.500" fontSize="sm">
+                <Spinner size="xs" />
+                <Text>
+                  {connectAttempts === 0
+                    ? 'Connecting to server…'
+                    : 'Still connecting — this can take up to a minute after a period of inactivity…'}
+                </Text>
+              </HStack>
+            )}
 
             <Button
               colorScheme="red"
