@@ -4,7 +4,7 @@ services:
     name: scuml-backend
     runtime: node
     rootDir: server
-    plan: starter
+    plan: free
     buildCommand: npm install
     startCommand: npm start
     healthCheckPath: /api/health
@@ -42,7 +42,7 @@ services:
     name: scuml-frontend
     runtime: node
     rootDir: scuml-frontend
-    plan: starter
+    plan: free
     buildCommand: npm install && npm run build
     startCommand: npm start
     envVars:
