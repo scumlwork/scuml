@@ -1,0 +1,54 @@
+services:
+  # --- Backend: Express API ---
+  - type: web
+    name: scuml-backend
+    runtime: node
+    rootDir: server
+    plan: starter
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Predicted from this blueprint's frontend service name below. If Render
+      # assigns a different URL (e.g. the name was already taken), update this
+      # to match the frontend's actual URL.
+      - key: FRONTEND_URL
+        value: https://scuml-frontend.onrender.com
+      - key: SESSION_NAME
+        value: scuml.sid
+      - key: SESSION_SECRET
+        generateValue: true
+      # Secrets — not stored in this file, set once in the Render dashboard.
+      - key: MONGO_URI
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      # Optional — only needed once ClamAV is actually stood up (see the
+      # "Ship without scanning" decision made for this deploy). Leave unset
+      # and uploads simply go unscanned, same as local dev.
+      # - key: CLAMAV_HOST
+      #   sync: false
+      # - key: CLAMAV_PORT
+      #   value: "3310"
+
+  # --- Frontend: Next.js app ---
+  - type: web
+    name: scuml-frontend
+    runtime: node
+    rootDir: scuml-frontend
+    plan: starter
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      # Predicted from the backend service name above — update if Render
+      # assigned a different URL.
+      - key: NEXT_PUBLIC_BACKEND_URL
+        value: https://scuml-backend.onrender.com
+      - key: NEXT_PUBLIC_DEFAULT_AVATAR_URL
+        sync: false

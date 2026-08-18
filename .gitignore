@@ -1,0 +1,26 @@
+# Environment variables — never commit real secrets
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+
+# Dependencies
+node_modules/
+
+# Build output
+/scuml-frontend/.next/
+/scuml-frontend/out/
+/scuml-frontend/build/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor/tooling
+.claude/
