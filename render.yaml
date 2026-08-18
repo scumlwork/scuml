@@ -46,9 +46,21 @@ services:
     buildCommand: npm install && npm run build
     startCommand: npm start
     envVars:
+      # Empty on purpose — every axios call does
+      # `${NEXT_PUBLIC_BACKEND_URL}/api/...`, so an empty value turns those
+      # into relative paths (e.g. "/api/auth/login"), meaning the browser
+      # calls this frontend's own domain instead of the backend's directly.
+      # The rewrites() in next.config.ts then proxies /api/* to the real
+      # backend server-side. This is what makes the session/CSRF cookies
+      # first-party from the browser's point of view — required for Safari
+      # on iOS, which blocks cross-site cookies even with SameSite=None.
+      - key: NEXT_PUBLIC_BACKEND_URL
+        value: ""
+      # Server-only (no NEXT_PUBLIC_ prefix — never sent to the browser).
+      # This is where next.config.ts's rewrite actually forwards /api/* to.
       # Predicted from the backend service name above — update if Render
       # assigned a different URL.
-      - key: NEXT_PUBLIC_BACKEND_URL
+      - key: BACKEND_ORIGIN
         value: https://scuml-backend.onrender.com
       - key: NEXT_PUBLIC_DEFAULT_AVATAR_URL
         sync: false
