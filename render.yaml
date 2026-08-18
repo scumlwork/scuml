@@ -46,31 +46,15 @@ services:
     buildCommand: npm install && npm run build
     startCommand: npm start
     envVars:
-      # Re-applying the proxy approach — verified working by running this
-      # exact rewrite locally against the real production backend (proxied
-      # /api/csrf-token through successfully, got a valid token + cookie
-      # back). The earlier production failure was very likely BACKEND_ORIGIN
-      # never actually reaching the live service, not a bug in this config —
-      # Render's Blueprint auto-sync can be unreliable about adding a
-      # brand-new env var key to an already-existing service. This time,
-      # manually verify both values in the Render dashboard's Environment
-      # tab BEFORE testing, rather than assuming sync applied them.
-      #
-      # Empty on purpose — every axios call does
-      # `${NEXT_PUBLIC_BACKEND_URL}/api/...`, so an empty value turns those
-      # into relative paths (e.g. "/api/auth/login"), meaning the browser
-      # calls this frontend's own domain instead of the backend's directly.
-      # The rewrites() in next.config.ts then proxies /api/* to the real
-      # backend server-side. This is what makes the session/CSRF cookies
-      # first-party from the browser's point of view — required for Safari
-      # on iOS, which blocks cross-site cookies even with SameSite=None.
-      - key: NEXT_PUBLIC_BACKEND_URL
-        value: ""
-      # Server-only (no NEXT_PUBLIC_ prefix — never sent to the browser).
-      # This is where next.config.ts's rewrite actually forwards /api/* to.
-      # Predicted from the backend service name above — update if Render
+      # Direct absolute URL — parked here for now. The proxy approach
+      # (empty NEXT_PUBLIC_BACKEND_URL + BACKEND_ORIGIN, see git history)
+      # fixes iOS Safari's cross-site cookie blocking and was verified
+      # working locally against this real backend, but its second production
+      # deploy got stuck mid-build on Render rather than actually failing —
+      # unresolved, not abandoned. Revisit when picking iOS support back up.
+      # Predicted from the backend service name below — update if Render
       # assigned a different URL.
-      - key: BACKEND_ORIGIN
+      - key: NEXT_PUBLIC_BACKEND_URL
         value: https://scuml-backend.onrender.com
       - key: NEXT_PUBLIC_DEFAULT_AVATAR_URL
         sync: false
