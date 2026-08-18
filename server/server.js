@@ -97,7 +97,12 @@ app.use(
 
 
 // Basic middleware
-app.set("trust proxy", 1); // needed for secure cookies behind proxy
+// `true` rather than a fixed hop count (1) — Render's exact proxy chain
+// depth isn't something this app controls, and getting that number wrong
+// silently breaks secure-cookie detection and req.ip. There's no untrusted
+// intermediary to worry about spoofing X-Forwarded-* here; Render's edge is
+// the only entry point.
+app.set("trust proxy", true);
 app.use(express.json({ limit: "100kb" }));
 app.use(express.urlencoded({ extended: false, limit: "100kb" }));
 app.use(sanitizeInput); // strip $-operators / prototype-pollution keys from all input
