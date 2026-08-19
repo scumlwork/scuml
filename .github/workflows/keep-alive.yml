@@ -1,0 +1,21 @@
+name: Keep Render services awake
+
+# Render's free tier spins each service down after ~15 minutes with no
+# traffic, causing a 30-60s cold-start delay on the next request. Pinging
+# both services' health/home routes on a schedule well under that window
+# keeps them warm. Frontend and backend are separate Render services and
+# sleep independently, so both need pinging.
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping backend health check
+        run: curl -sf --max-time 30 https://scuml-backend.onrender.com/api/health || true
+
+      - name: Ping frontend
+        run: curl -sf --max-time 30 https://scuml-frontend.onrender.com/login || true
