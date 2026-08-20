@@ -11,11 +11,8 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      # Predicted from this blueprint's frontend service name below. If Render
-      # assigns a different URL (e.g. the name was already taken), update this
-      # to match the frontend's actual URL.
       - key: FRONTEND_URL
-        value: https://scuml-frontend.onrender.com
+        value: https://myscumlwork.me
       - key: SESSION_NAME
         value: scuml.sid
       - key: SESSION_SECRET
@@ -46,15 +43,12 @@ services:
     buildCommand: npm install && npm run build
     startCommand: npm start
     envVars:
-      # Direct absolute URL — parked here for now. The proxy approach
-      # (empty NEXT_PUBLIC_BACKEND_URL + BACKEND_ORIGIN, see git history)
-      # fixes iOS Safari's cross-site cookie blocking and was verified
-      # working locally against this real backend, but its second production
-      # deploy got stuck mid-build on Render rather than actually failing —
-      # unresolved, not abandoned. Revisit when picking iOS support back up.
-      # Predicted from the backend service name below — update if Render
-      # assigned a different URL.
+      # Now on a custom subdomain of the same parent domain as the frontend
+      # (myscumlwork.me / api.myscumlwork.me) — same "site" per browser
+      # cookie rules, which fixes iOS Safari's cross-site cookie blocking
+      # properly, without needing the Next.js proxy workaround that was
+      # attempted and abandoned earlier (see git history).
       - key: NEXT_PUBLIC_BACKEND_URL
-        value: https://scuml-backend.onrender.com
+        value: https://api.myscumlwork.me
       - key: NEXT_PUBLIC_DEFAULT_AVATAR_URL
         sync: false

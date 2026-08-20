@@ -119,13 +119,15 @@ harden(app);
 // `rolling: true` re-issues the cookie (and connect-mongo re-touches the
 // store record, sliding its TTL) on every authenticated request, so the
 // session only actually expires after 5 hours with no requests at all.
-// `sameSite: "none"` is required in production because the frontend and
-// backend deploy as separate services on separate subdomains (e.g. Render
-// gives each its own *.onrender.com host, which browsers treat as different
-// "sites") — a cross-site fetch/XHR never sends a SameSite=Lax cookie, only
-// SameSite=None does, and that in turn requires secure:true (already tied to
-// isProd). Locally, frontend and backend share the "localhost" site, so Lax
-// works fine there and stays the dev default.
+// Plain "lax" works everywhere now — frontend and backend are both
+// subdomains of the same parent (myscumlwork.me / api.myscumlwork.me in
+// production, "localhost" in dev), which browsers treat as the same "site"
+// regardless of subdomain, so cross-subdomain fetch/XHR still sends the
+// cookie. This used to need SameSite=None (and its required secure:true)
+// back when frontend and backend were on two unrelated *.onrender.com
+// hosts — that's what broke iOS Safari, which blocks cross-site cookies
+// even with None set. Same-parent-domain subdomains sidestep the problem
+// entirely instead of working around it.
 const SESSION_IDLE_TIMEOUT_MS = 1000 * 60 * 60 * 5; // 5 hours
 const userSession = session({
   name: process.env.SESSION_NAME || "scuml.sid",
@@ -141,7 +143,7 @@ const userSession = session({
   cookie: {
     httpOnly: true,
     secure: isProd, // HTTPS-only once actually deployed behind TLS
-    sameSite: isProd ? "none" : "lax",
+    sameSite: "lax",
     maxAge: SESSION_IDLE_TIMEOUT_MS,
   },
 });
@@ -162,7 +164,7 @@ const adminSession = session({
   cookie: {
     httpOnly: true,
     secure: isProd,
-    sameSite: isProd ? "none" : "lax",
+    sameSite: "lax",
     maxAge: 1000 * 60 * 60 * 2, // 2 hours
   },
 });
@@ -177,7 +179,7 @@ const csrfProtection = csurf({
     key: "scuml.csrf",
     httpOnly: true,
     secure: isProd,
-    sameSite: isProd ? "none" : "lax",
+    sameSite: "lax",
     path: "/",
   },
 });
