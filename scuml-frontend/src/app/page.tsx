@@ -4,8 +4,10 @@ import {
   Box,
   Text,
   Flex,
+  HStack,
   Button,
   Image,
+  Input,
   Spinner,
   IconButton,
   Drawer,
@@ -39,6 +41,12 @@ import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, ReactNode } from 'react';
 import axios from 'axios';
+import LetterForm from '@/components/forms/LetterForm';
+import SanctionForm from '@/components/forms/SanctionForm';
+import ViolationForm from '@/components/forms/ViolationForm';
+import TrainingForm from '@/components/forms/TrainingForm';
+import OnSiteInspectionForm from '@/components/forms/OnSiteInspectionForm';
+import OffSiteInspectionForm from '@/components/forms/OffSiteInspectionForm';
 
 const DEFAULT_AVATAR =
   "https://res.cloudinary.com/dtseei2ze/image/upload/v1756982016/default-avatar_w9umu2.jpg";
@@ -321,6 +329,17 @@ export default function HomePage() {
   const [registrations, setRegistrations] = useState<Registration[]>([]);
 const [selectedRegistration, setSelectedRegistration] = useState<Registration | null>(null);
 
+  // 🔹 Home page company search — filters client-side against the already-
+  // loaded registrations list, so results narrow live on every keystroke
+  // with no extra network round trip.
+  const [homeSearchQuery, setHomeSearchQuery] = useState('');
+  const homeSearchResults =
+    homeSearchQuery.trim().length > 0
+      ? registrations.filter((r) =>
+          r.companyName?.toLowerCase().includes(homeSearchQuery.trim().toLowerCase())
+        )
+      : [];
+
   const {
     isOpen: isModalOpen,
     onOpen: onModalOpen,
@@ -436,24 +455,44 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
     }
   }, [user, setUser]);
 
-  // 🔹 Fetch registrations
-  useEffect(() => {
-    const fetchRegistrations = async () => {
-      try {
-        const res = await axios.get(
-          `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/registrations`,
-          { withCredentials: true }
-        );
-        setRegistrations(res.data || []);
-      } catch (err) {
-        console.error("Failed to fetch registrations:", err);
-      }
-    };
+  // 🔹 Fetch registrations — pulled out of the effect so it can also be
+  // called after adding a record inline from the Compliance Record modal,
+  // to refresh that company's data without a full page reload.
+  const fetchRegistrations = async (): Promise<Registration[]> => {
+    try {
+      const res = await axios.get(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/registrations`,
+        { withCredentials: true }
+      );
+      const data: Registration[] = res.data || [];
+      setRegistrations(data);
+      return data;
+    } catch (err) {
+      console.error("Failed to fetch registrations:", err);
+      return [];
+    }
+  };
 
+  useEffect(() => {
     if (user) {
       fetchRegistrations();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  // 🔹 Inline "add a record" panel inside the Company Compliance Record modal
+  const [addRecordType, setAddRecordType] = useState<
+    'letter' | 'sanction' | 'violation' | 'training' | 'onsite' | 'offsite' | null
+  >(null);
+
+  const handleAddRecordSuccess = async () => {
+    const data = await fetchRegistrations();
+    setSelectedRegistration((prev) => {
+      if (!prev) return prev;
+      return data.find((r) => r._id === prev._id) || prev;
+    });
+    setAddRecordType(null);
+  };
 
   if (loading) {
     return (
@@ -575,7 +614,7 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
 >
   {[
     { label: "Identification", path: "registration", superadminOnly: false, ownerOnly: false }, // ✅ links to /registration
-    { label: "Letters", path: "letters", superadminOnly: false, ownerOnly: false },
+    { label: "Actions", path: "letters", superadminOnly: false, ownerOnly: false },
     { label: "On-Site Inspection", path: "on-site-inspection", superadminOnly: false, ownerOnly: false },
     { label: "Off-Site Inspection", path: "off-site-inspection", superadminOnly: false, ownerOnly: false },
     { label: "Sanction", path: "sanction", superadminOnly: false, ownerOnly: false },
@@ -724,6 +763,50 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
           </Text>
         </Box>
 
+{/* 🔹 Company search */}
+<Box p={3} zIndex={1} position="relative">
+  <Input
+    value={homeSearchQuery}
+    onChange={(e) => setHomeSearchQuery(e.target.value)}
+    placeholder="Search company..."
+    bg="white"
+    size="sm"
+  />
+  {homeSearchResults.length > 0 && (
+    <Box
+      position="absolute"
+      left={3}
+      right={3}
+      mt={1}
+      bg="white"
+      borderWidth="1px"
+      borderRadius="md"
+      shadow="md"
+      zIndex={10}
+      maxH="220px"
+      overflowY="auto"
+    >
+      {homeSearchResults.map((r) => (
+        <Box
+          key={r._id}
+          px={3}
+          py={2}
+          cursor="pointer"
+          _hover={{ bg: 'gray.100' }}
+          onClick={() => {
+            setSelectedRegistration(r);
+            setAddRecordType(null);
+            onModalOpen();
+            setHomeSearchQuery('');
+          }}
+        >
+          <Text fontSize="sm" fontWeight="medium">{r.companyName}</Text>
+        </Box>
+      ))}
+    </Box>
+  )}
+</Box>
+
 {/* 🔹 Registrations list */}
 <Box p={3} zIndex={1}>
   {registrations.length === 0 ? (
@@ -753,20 +836,21 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
           </Button>
         </Flex>
       )}
-      <VStack align="stretch" spacing={1.5}>
+      <VStack align="stretch" spacing={2}>
         {registrations.map((reg) => (
           <Flex
             key={reg._id}
             align="center"
             gap={2}
-            p={1.5}
+            p={3}
             bg="gray.50"
-            borderRadius="sm"
+            borderRadius="md"
             shadow="xs"
             cursor="pointer"
             _hover={{ bg: "gray.100" }}
             onClick={() => {
               setSelectedRegistration(reg);
+              setAddRecordType(null);
               onModalOpen();
             }}
           >
@@ -780,10 +864,10 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
               </Box>
             )}
             <Box flex="1">
-              <Text fontWeight="medium" fontSize="xs">
+              <Text fontWeight="medium" fontSize="sm">
                 {reg.companyName}
               </Text>
-              <Text fontSize="2xs" color="gray.600">
+              <Text fontSize="xs" color="gray.600">
                 Office: {reg.officerName} | Date: {reg.dateOfIdentification}{" "}
                 {reg.time || ""}
               </Text>
@@ -839,12 +923,17 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
                     </Link>
                   )}
 
-                  {/* Letters */}
+                  {/* Letters / Actions */}
                   {selectedRegistration.letters && selectedRegistration.letters.length > 0 && (
                     <Box mt={4}>
-                      <Text fontSize="lg" fontWeight="bold" mb={2} color="blue.600">
-                        Letters
-                      </Text>
+                      <HStack justify="space-between" mb={2}>
+                        <Text fontSize="lg" fontWeight="bold" color="blue.600">
+                          Actions
+                        </Text>
+                        <Button size="xs" colorScheme="blue" variant="outline" onClick={() => setAddRecordType('letter')}>
+                          + Add More
+                        </Button>
+                      </HStack>
                       {selectedRegistration.letters.map((letter) => (
                         <Box key={letter._id} p={2} borderWidth="1px" borderRadius="md" mb={2}>
                           <Text><b>Type:</b> {letter.typeOfLetter}</Text>
@@ -860,9 +949,14 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
                  {/* Sanctions */}
 {selectedRegistration.sanctions && selectedRegistration.sanctions.length > 0 && (
   <Box mt={4}>
-    <Text fontSize="lg" fontWeight="bold" mb={2} color="orange.600">
-      Sanctions
-    </Text>
+    <HStack justify="space-between" mb={2}>
+      <Text fontSize="lg" fontWeight="bold" color="orange.600">
+        Sanctions
+      </Text>
+      <Button size="xs" colorScheme="orange" variant="outline" onClick={() => setAddRecordType('sanction')}>
+        + Add More
+      </Button>
+    </HStack>
     {selectedRegistration.sanctions.map((sanction) => (
       <Box key={sanction._id} p={2} borderWidth="1px" borderRadius="md" mb={2}>
         <Text><b>Nature of Business:</b> {sanction.natureOfBusiness}</Text>
@@ -875,9 +969,14 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
 
 {selectedRegistration.violations && selectedRegistration.violations.length > 0 && (
   <Box mt={4}>
-    <Text fontSize="lg" fontWeight="bold" mb={2} color="orange.700">
-      Violations
-    </Text>
+    <HStack justify="space-between" mb={2}>
+      <Text fontSize="lg" fontWeight="bold" color="orange.700">
+        Violations
+      </Text>
+      <Button size="xs" colorScheme="red" variant="outline" onClick={() => setAddRecordType('violation')}>
+        + Add More
+      </Button>
+    </HStack>
     {selectedRegistration.violations.map((violation) =>
       violationCards(violation).map((card, idx) => (
         <Box key={`${violation._id}-${idx}`} p={2} borderWidth="1px" borderRadius="md" mb={2}>
@@ -899,9 +998,14 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
                   {/* On-Site Inspections */}
                   {selectedRegistration.onSiteInspections && selectedRegistration.onSiteInspections.length > 0 && (
                     <Box mt={4}>
-                      <Text fontSize="lg" fontWeight="bold" mb={2} color="green.600">
-                        On-Site Inspections
-                      </Text>
+                      <HStack justify="space-between" mb={2}>
+                        <Text fontSize="lg" fontWeight="bold" color="green.600">
+                          On-Site Inspections
+                        </Text>
+                        <Button size="xs" colorScheme="green" variant="outline" onClick={() => setAddRecordType('onsite')}>
+                          + Add More
+                        </Button>
+                      </HStack>
                       {selectedRegistration.onSiteInspections.map((insp) => (
                         <Box key={insp._id} p={3} borderWidth="1px" borderRadius="md" mb={3} overflowX="auto">
                           {insp.obligations && insp.obligations.length > 0 && (
@@ -990,9 +1094,14 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
                   {/* Trainings */}
                   {selectedRegistration.trainings && selectedRegistration.trainings.length > 0 && (
                     <Box mt={4}>
-                      <Text fontSize="lg" fontWeight="bold" mb={2} color="teal.600">
-                        Trainings
-                      </Text>
+                      <HStack justify="space-between" mb={2}>
+                        <Text fontSize="lg" fontWeight="bold" color="teal.600">
+                          Trainings
+                        </Text>
+                        <Button size="xs" colorScheme="teal" variant="outline" onClick={() => setAddRecordType('training')}>
+                          + Add More
+                        </Button>
+                      </HStack>
                       {selectedRegistration.trainings.map((t) => (
                         <Box key={t._id} p={2} borderWidth="1px" borderRadius="md" mb={2}>
                           <Text><b>Topic:</b> {t.topic}</Text>
@@ -1011,9 +1120,14 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
                  {/* Off-Site Inspections */}
 {selectedRegistration.offSiteInspections && selectedRegistration.offSiteInspections.length > 0 && (
   <Box mt={4}>
-    <Text fontSize="lg" fontWeight="bold" mb={2} color="purple.600">
-      Off-Site Inspections
-    </Text>
+    <HStack justify="space-between" mb={2}>
+      <Text fontSize="lg" fontWeight="bold" color="purple.600">
+        Off-Site Inspections
+      </Text>
+      <Button size="xs" colorScheme="purple" variant="outline" onClick={() => setAddRecordType('offsite')}>
+        + Add More
+      </Button>
+    </HStack>
 
     {selectedRegistration.offSiteInspections.map((insp) => (
       <Box
@@ -1107,8 +1221,82 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
   </Box>
 )}
 
+{/* Add Actions — pick a record type to add for this company without
+    leaving the compliance record. Same forms as the side-nav pages,
+    just embedded here with the company already selected. */}
+<Box mt={6} pt={4} borderTopWidth="1px">
+  <Text fontSize="lg" fontWeight="bold" mb={2} color="gray.700">
+    Add Actions
+  </Text>
+  <HStack spacing={2} flexWrap="wrap" mb={addRecordType ? 4 : 0}>
+    <Button size="sm" colorScheme="blue" onClick={() => setAddRecordType('letter')}>Actions</Button>
+    <Button size="sm" colorScheme="green" onClick={() => setAddRecordType('onsite')}>On-Site Inspection</Button>
+    <Button size="sm" colorScheme="purple" onClick={() => setAddRecordType('offsite')}>Off-Site Inspection</Button>
+    <Button size="sm" colorScheme="orange" onClick={() => setAddRecordType('sanction')}>Sanction</Button>
+    <Button size="sm" colorScheme="red" onClick={() => setAddRecordType('violation')}>Violations</Button>
+    <Button size="sm" colorScheme="teal" onClick={() => setAddRecordType('training')}>Training</Button>
+  </HStack>
 
+  {addRecordType && (
+    <Box borderWidth="1px" borderRadius="md" p={4} bg="gray.50">
+      <HStack justify="space-between" mb={3}>
+        <Text fontWeight="bold">
+          {addRecordType === 'letter' && 'Add Action'}
+          {addRecordType === 'sanction' && 'Add Sanction'}
+          {addRecordType === 'violation' && 'Add Violation'}
+          {addRecordType === 'training' && 'Add Training'}
+          {addRecordType === 'onsite' && 'Add On-Site Inspection'}
+          {addRecordType === 'offsite' && 'Add Off-Site Inspection'}
+        </Text>
+        <Button size="xs" variant="ghost" onClick={() => setAddRecordType(null)}>Cancel</Button>
+      </HStack>
 
+      {addRecordType === 'letter' && (
+        <LetterForm
+          companyId={selectedRegistration._id}
+          companyName={selectedRegistration.companyName}
+          onSuccess={handleAddRecordSuccess}
+        />
+      )}
+      {addRecordType === 'sanction' && (
+        <SanctionForm
+          companyId={selectedRegistration._id}
+          companyName={selectedRegistration.companyName}
+          initialNatureOfBusiness={selectedRegistration.natureOfBusiness}
+          onSuccess={handleAddRecordSuccess}
+        />
+      )}
+      {addRecordType === 'violation' && (
+        <ViolationForm
+          companyId={selectedRegistration._id}
+          companyName={selectedRegistration.companyName}
+          onSuccess={handleAddRecordSuccess}
+        />
+      )}
+      {addRecordType === 'training' && (
+        <TrainingForm
+          companyId={selectedRegistration._id}
+          companyName={selectedRegistration.companyName}
+          onSuccess={handleAddRecordSuccess}
+        />
+      )}
+      {addRecordType === 'onsite' && (
+        <OnSiteInspectionForm
+          companyId={selectedRegistration._id}
+          companyName={selectedRegistration.companyName}
+          onSuccess={handleAddRecordSuccess}
+        />
+      )}
+      {addRecordType === 'offsite' && (
+        <OffSiteInspectionForm
+          companyId={selectedRegistration._id}
+          companyName={selectedRegistration.companyName}
+          onSuccess={handleAddRecordSuccess}
+        />
+      )}
+    </Box>
+  )}
+</Box>
 
 
 

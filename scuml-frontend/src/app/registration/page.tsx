@@ -18,6 +18,7 @@ import {
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
+import { LGA_BY_STATE } from '@/lib/nigeriaLocations';
 
 export default function RegistrationPage() {
   const router = useRouter();
@@ -42,6 +43,12 @@ export default function RegistrationPage() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  // City's options depend on which State is selected — changing State
+  // clears City rather than leaving a now-invalid LGA selected.
+  const handleStateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setFormData({ ...formData, state: e.target.value, city: '' });
   };
 
   // Uploads the photo gallery without blocking navigation — photos can take a
@@ -199,7 +206,7 @@ export default function RegistrationPage() {
                 <Select
                   name="state"
                   value={formData.state}
-                  onChange={handleChange}
+                  onChange={handleStateChange}
                   placeholder="Select state"
                 >
                   <option value="Edo">Edo</option>
@@ -210,12 +217,17 @@ export default function RegistrationPage() {
 
               <FormControl isRequired>
                 <FormLabel>City</FormLabel>
-                <Input
+                <Select
                   name="city"
                   value={formData.city}
                   onChange={handleChange}
-                  placeholder="Enter city"
-                />
+                  placeholder={formData.state ? 'Select city' : 'Select a state first'}
+                  isDisabled={!formData.state}
+                >
+                  {(LGA_BY_STATE[formData.state] || []).map((lga) => (
+                    <option key={lga} value={lga}>{lga}</option>
+                  ))}
+                </Select>
               </FormControl>
 
               <FormControl isRequired>

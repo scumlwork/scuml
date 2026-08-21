@@ -5,6 +5,7 @@ import axios from "axios";
 import {
   Box,
   Input,
+  Select,
   Textarea,
   VStack,
   Text,
@@ -42,6 +43,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { ChevronLeftIcon, ChevronRightIcon } from "@chakra-ui/icons";
+import { LGA_BY_STATE } from "@/lib/nigeriaLocations";
 
 // 🔹 Types
 interface Letter {
@@ -388,11 +390,11 @@ export default function DatabasePage() {
     onClose: onEditClose,
   } = useDisclosure();
   const [editItem, setEditItem] = useState<
-  Letter | Sanction | OffSiteInspection | OnSiteInspection | Training | Violation | null
+  Letter | Sanction | OffSiteInspection | OnSiteInspection | Training | Violation | Registration | null
 >(null);
 
 const [editType, setEditType] = useState<
-  "letter" | "sanction" | "inspection" | "onsite" | "training" | "violation" | null
+  "letter" | "sanction" | "inspection" | "onsite" | "training" | "violation" | "registration" | null
 >(null);
 
 
@@ -623,8 +625,9 @@ const handleEdit = (
     | "inspection"
     | "onsite"
     | "training"
-    | "violation",
-  item: Letter | Sanction | OffSiteInspection | OnSiteInspection | Training | Violation
+    | "violation"
+    | "registration",
+  item: Letter | Sanction | OffSiteInspection | OnSiteInspection | Training | Violation | Registration
 ) => {
   setEditType(type);
   setEditItem(item);
@@ -633,11 +636,12 @@ const handleEdit = (
 
 // 🔹 Map frontend type to backend API path
 const getApiPath = (
-  type: "letter" | "sanction" | "inspection" | "onsite" | "training" | "violation"
+  type: "letter" | "sanction" | "inspection" | "onsite" | "training" | "violation" | "registration"
 ) => {
   if (type === "inspection") return "offsite-inspections";
   if (type === "onsite") return "on-site-inspections";
   if (type === "training") return "trainings";
+  if (type === "registration") return "registrations";
   return `${type}s`; // letters, sanctions
 };
 
@@ -711,6 +715,27 @@ const handleSaveEdit = async () => {
           violations: r.violations.map((v) =>
             v._id === editItem._id ? (updated as Violation) : v
           ),
+        };
+      }
+
+      if (editType === "registration") {
+        // The PUT /registrations/:id response has no populated sub-arrays
+        // (letters/sanctions/etc come back as raw ids, not objects) — only
+        // take the registration's own scalar fields from it, keep r's
+        // already-populated arrays as they are.
+        const u = updated as Registration;
+        return {
+          ...r,
+          officerName: u.officerName,
+          dateOfIdentification: u.dateOfIdentification,
+          companyName: u.companyName,
+          natureOfBusiness: u.natureOfBusiness,
+          address: u.address,
+          state: u.state,
+          city: u.city,
+          modeOfIdentification: u.modeOfIdentification,
+          phone: u.phone,
+          email: u.email,
         };
       }
 
@@ -827,8 +852,17 @@ const handleSaveEdit = async () => {
             <ModalBody>
               <VStack align="start" spacing={4} fontSize="sm">
                 {/* 📌 Registration Info */}
-                <Box>
-                  <Text fontWeight="bold">Registration</Text>
+                <Box w="full">
+                  <HStack justify="space-between">
+                    <Text fontWeight="bold">Registration</Text>
+                    <Button
+                      size="xs"
+                      colorScheme="blue"
+                      onClick={() => handleEdit("registration", selectedCompany)}
+                    >
+                      Edit
+                    </Button>
+                  </HStack>
                   <Text>Identification Office: {selectedCompany.officerName}</Text>
                   <Text>Date of Identification: {selectedCompany.dateOfIdentification || "N/A"}</Text>
                   <Text>Company Name: {selectedCompany.companyName}</Text>
@@ -1330,6 +1364,107 @@ const handleSaveEdit = async () => {
           >
             <ModalHeader>Edit {editType}</ModalHeader>
             <ModalBody overflowY="auto">
+              {editType === "registration" && (
+                <>
+                  <Input
+                    placeholder="Identification Office"
+                    value={(editItem as Registration).officerName}
+                    onChange={(e) =>
+                      setEditItem({ ...(editItem as Registration), officerName: e.target.value })
+                    }
+                    mb={2}
+                  />
+                  <Input
+                    type="date"
+                    placeholder="Date of Identification"
+                    value={(editItem as Registration).dateOfIdentification || ""}
+                    onChange={(e) =>
+                      setEditItem({ ...(editItem as Registration), dateOfIdentification: e.target.value })
+                    }
+                    mb={2}
+                  />
+                  <Input
+                    placeholder="Company Name"
+                    value={(editItem as Registration).companyName}
+                    onChange={(e) =>
+                      setEditItem({ ...(editItem as Registration), companyName: e.target.value })
+                    }
+                    mb={2}
+                  />
+                  <Input
+                    placeholder="Nature of Business"
+                    value={(editItem as Registration).natureOfBusiness || ""}
+                    onChange={(e) =>
+                      setEditItem({ ...(editItem as Registration), natureOfBusiness: e.target.value })
+                    }
+                    mb={2}
+                  />
+                  <Input
+                    placeholder="Address"
+                    value={(editItem as Registration).address}
+                    onChange={(e) =>
+                      setEditItem({ ...(editItem as Registration), address: e.target.value })
+                    }
+                    mb={2}
+                  />
+                  <Select
+                    placeholder="Select state"
+                    value={(editItem as Registration).state || ""}
+                    onChange={(e) =>
+                      setEditItem({ ...(editItem as Registration), state: e.target.value, city: "" })
+                    }
+                    mb={2}
+                  >
+                    <option value="Edo">Edo</option>
+                    <option value="Delta">Delta</option>
+                    <option value="Ondo">Ondo</option>
+                  </Select>
+                  <Select
+                    placeholder={(editItem as Registration).state ? "Select city" : "Select a state first"}
+                    value={(editItem as Registration).city || ""}
+                    isDisabled={!(editItem as Registration).state}
+                    onChange={(e) =>
+                      setEditItem({ ...(editItem as Registration), city: e.target.value })
+                    }
+                    mb={2}
+                  >
+                    {(LGA_BY_STATE[(editItem as Registration).state || ""] || []).map((lga) => (
+                      <option key={lga} value={lga}>{lga}</option>
+                    ))}
+                  </Select>
+                  <Select
+                    placeholder="Select mode of identification"
+                    value={(editItem as Registration).modeOfIdentification || ""}
+                    onChange={(e) =>
+                      setEditItem({ ...(editItem as Registration), modeOfIdentification: e.target.value })
+                    }
+                    mb={2}
+                  >
+                    <option value="Physical">Physical</option>
+                    <option value="Online">Online</option>
+                    <option value="Social Media">Social Media</option>
+                    <option value="Newspaper">Newspaper</option>
+                  </Select>
+                  <Input
+                    placeholder="Phone"
+                    value={(editItem as Registration).phone || ""}
+                    onChange={(e) =>
+                      setEditItem({ ...(editItem as Registration), phone: e.target.value })
+                    }
+                    mb={2}
+                  />
+                  <Input
+                    type="email"
+                    placeholder="Email"
+                    value={(editItem as Registration).email || ""}
+                    onChange={(e) =>
+                      setEditItem({ ...(editItem as Registration), email: e.target.value })
+                    }
+                    mb={2}
+                  />
+                </>
+              )}
+
               {editType === "letter" && (
                 <>
                   <Input
