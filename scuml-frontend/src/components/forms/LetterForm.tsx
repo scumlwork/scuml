@@ -4,12 +4,13 @@ import {
   Button,
   Input,
   Select,
+  Textarea,
   FormControl,
   FormLabel,
   VStack,
   useToast,
 } from '@chakra-ui/react';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import axios from 'axios';
 
 // Shared props across every "add a record to this company" form — used both
@@ -24,7 +25,16 @@ export interface CompanyFormProps {
   onSuccess: () => void;
 }
 
-const ACTIVITY_OPTIONS = ['Invitation', 'Inspection', 'Training', 'Warning', 'Sanction'];
+const ACTIVITY_OPTIONS = [
+  'Invitation',
+  'Inspection',
+  'Training',
+  'Warning',
+  'Sanction',
+  'Visitation',
+  'Reminder',
+  'Follow Up',
+];
 
 const today = new Date().toISOString().split('T')[0];
 
@@ -34,7 +44,33 @@ export default function LetterForm({ companyName, onSuccess }: CompanyFormProps)
   const [receiverName, setReceiverName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  const [remark, setRemark] = useState('');
+  const [dateOfReporting, setDateOfReporting] = useState(today);
+  const [photos, setPhotos] = useState<FileList | null>(null);
+  const photosInputRef = useRef<HTMLInputElement>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const uploadPhotosInBackground = async (letterId: string, csrfToken: string) => {
+    if (!photos || photos.length === 0) return;
+    try {
+      const photoData = new FormData();
+      Array.from(photos).forEach((file) => photoData.append('photos', file));
+      await axios.post(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/letters/${letterId}/photos`,
+        photoData,
+        { withCredentials: true, headers: { 'X-CSRF-Token': csrfToken } }
+      );
+    } catch (photoErr) {
+      console.error('Photo upload failed:', photoErr);
+      toast({
+        title: 'Action saved, but photo upload failed.',
+        description: 'You can try uploading the photos again later.',
+        status: 'warning',
+        duration: 5000,
+        isClosable: true,
+      });
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,7 +82,7 @@ export default function LetterForm({ companyName, onSuccess }: CompanyFormProps)
       );
       const csrfToken = csrfRes.data.csrfToken;
 
-      await axios.post(
+      const res = await axios.post(
         `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/letters`,
         {
           companyName,
@@ -54,10 +90,15 @@ export default function LetterForm({ companyName, onSuccess }: CompanyFormProps)
           receiverName,
           phone,
           email,
-          dateOfReporting: today,
+          remark,
+          dateOfReporting,
         },
         { withCredentials: true, headers: { 'X-CSRF-Token': csrfToken } }
       );
+
+      if (photos && photos.length > 0) {
+        await uploadPhotosInBackground(res.data._id, csrfToken);
+      }
 
       toast({
         title: 'Action submitted.',
@@ -103,7 +144,7 @@ export default function LetterForm({ companyName, onSuccess }: CompanyFormProps)
         </FormControl>
 
         <FormControl isRequired>
-          <FormLabel>Receiver Name</FormLabel>
+          <FormLabel>Contact Person</FormLabel>
           <Input value={receiverName} onChange={(e) => setReceiverName(e.target.value)} />
         </FormControl>
 
@@ -117,9 +158,34 @@ export default function LetterForm({ companyName, onSuccess }: CompanyFormProps)
           <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
         </FormControl>
 
+        <FormControl>
+          <FormLabel>Remark (optional)</FormLabel>
+          <Textarea
+            value={remark}
+            onChange={(e) => setRemark(e.target.value)}
+            placeholder="Enter any additional remarks"
+          />
+        </FormControl>
+
         <FormControl isRequired>
           <FormLabel>Date of Reporting</FormLabel>
-          <Input type="date" value={today} isReadOnly cursor="not-allowed" bg="gray.100" />
+          <Input
+            type="date"
+            value={dateOfReporting}
+            onChange={(e) => setDateOfReporting(e.target.value)}
+          />
+        </FormControl>
+
+        <FormControl>
+          <FormLabel>Photos</FormLabel>
+          <Input
+            ref={photosInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            p={1}
+            onChange={(e) => setPhotos(e.target.files)}
+          />
         </FormControl>
 
         <Button type="submit" size="lg" colorScheme="red" borderRadius="xl" isLoading={submitting}>

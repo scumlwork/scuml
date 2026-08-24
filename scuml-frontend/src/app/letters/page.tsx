@@ -3,6 +3,7 @@
 import {
   Box,
   Input,
+  Text,
   FormControl,
   FormLabel,
   Heading,
@@ -26,6 +27,7 @@ export default function LettersPage() {
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<Company[]>([]);
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
+  const [entryDateTime] = useState(() => new Date());
 
   // 🔎 Fetch company suggestions as user types
   useEffect(() => {
@@ -59,9 +61,14 @@ export default function LettersPage() {
     <Container maxW="4xl" py={10}>
       <Card shadow="lg" borderRadius="2xl">
         <CardBody>
-          <Heading size="lg" textAlign="center" mb={8} color="red.500">
+          <Heading size="lg" textAlign="center" mb={2} color="red.500">
             Actions
           </Heading>
+
+          <Text fontSize="sm" color="gray.500" textAlign="center" mb={6}>
+            Entry Date & Time: {entryDateTime.toLocaleDateString()}{' '}
+            {entryDateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </Text>
 
           {/* 🔎 Search field */}
           <Box mb={6}>

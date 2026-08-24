@@ -44,6 +44,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { ChevronLeftIcon, ChevronRightIcon } from "@chakra-ui/icons";
 import { LGA_BY_STATE } from "@/lib/nigeriaLocations";
+import { NATURE_OF_BUSINESS_OPTIONS } from "@/lib/natureOfBusiness";
 
 // 🔹 Types
 interface Letter {
@@ -52,6 +53,8 @@ interface Letter {
   receiverName?: string;
   phone?: string;
   email?: string;
+  remark?: string;
+  photos?: string[];
   dateOfReporting?: string;
   createdBy: string;
 }
@@ -206,6 +209,7 @@ interface Registration {
   officerName: string;
   dateOfIdentification?: string;
   natureOfBusiness?: string;
+  companySize?: string;
   modeOfIdentification?: string;
   address: string;
   state?: string;
@@ -730,6 +734,7 @@ const handleSaveEdit = async () => {
           dateOfIdentification: u.dateOfIdentification,
           companyName: u.companyName,
           natureOfBusiness: u.natureOfBusiness,
+          companySize: u.companySize,
           address: u.address,
           state: u.state,
           city: u.city,
@@ -863,10 +868,11 @@ const handleSaveEdit = async () => {
                       Edit
                     </Button>
                   </HStack>
-                  <Text>Identification Office: {selectedCompany.officerName}</Text>
+                  <Text>Identification Officer: {selectedCompany.officerName}</Text>
                   <Text>Date of Identification: {selectedCompany.dateOfIdentification || "N/A"}</Text>
                   <Text>Company Name: {selectedCompany.companyName}</Text>
                   <Text>Nature of Business: {selectedCompany.natureOfBusiness || "N/A"}</Text>
+                  <Text>Company Size: {selectedCompany.companySize || "N/A"}</Text>
                   <Text>Address: {selectedCompany.address}</Text>
                   <Text>State: {selectedCompany.state || "N/A"}</Text>
                   <Text>City: {selectedCompany.city || "N/A"}</Text>
@@ -904,9 +910,10 @@ const handleSaveEdit = async () => {
                       >
                         <Box>
                           <Text>Type: {letter.typeOfLetter}</Text>
-                          <Text>Receiver: {letter.receiverName}</Text>
+                          <Text>Contact Person: {letter.receiverName}</Text>
                           <Text>Phone: {letter.phone || "N/A"}</Text>
                           <Text>Email: {letter.email || "N/A"}</Text>
+                          <Text>Remark: {letter.remark || "N/A"}</Text>
                           <Text>Date: {letter.dateOfReporting}</Text>
                           <Text fontSize="xs" color="gray.500">
                             Entered by: {letter.createdBy}
@@ -1367,7 +1374,7 @@ const handleSaveEdit = async () => {
               {editType === "registration" && (
                 <>
                   <Input
-                    placeholder="Identification Office"
+                    placeholder="Identification Officer"
                     value={(editItem as Registration).officerName}
                     onChange={(e) =>
                       setEditItem({ ...(editItem as Registration), officerName: e.target.value })
@@ -1391,14 +1398,30 @@ const handleSaveEdit = async () => {
                     }
                     mb={2}
                   />
-                  <Input
-                    placeholder="Nature of Business"
+                  <Select
+                    placeholder="Select nature of business"
                     value={(editItem as Registration).natureOfBusiness || ""}
                     onChange={(e) =>
                       setEditItem({ ...(editItem as Registration), natureOfBusiness: e.target.value })
                     }
                     mb={2}
-                  />
+                  >
+                    {NATURE_OF_BUSINESS_OPTIONS.map((option) => (
+                      <option key={option} value={option}>{option}</option>
+                    ))}
+                  </Select>
+                  <Select
+                    placeholder="Select company size"
+                    value={(editItem as Registration).companySize || ""}
+                    onChange={(e) =>
+                      setEditItem({ ...(editItem as Registration), companySize: e.target.value })
+                    }
+                    mb={2}
+                  >
+                    <option value="Small">Small</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Large">Large</option>
+                  </Select>
                   <Input
                     placeholder="Address"
                     value={(editItem as Registration).address}
@@ -1476,7 +1499,7 @@ const handleSaveEdit = async () => {
                     mb={2}
                   />
                   <Input
-                    placeholder="Receiver"
+                    placeholder="Contact Person"
                     value={(editItem as Letter).receiverName || ""}
                     onChange={(e) =>
                       setEditItem({ ...(editItem as Letter), receiverName: e.target.value })
@@ -1496,6 +1519,14 @@ const handleSaveEdit = async () => {
                     value={(editItem as Letter).email || ""}
                     onChange={(e) =>
                       setEditItem({ ...(editItem as Letter), email: e.target.value })
+                    }
+                    mb={2}
+                  />
+                  <Textarea
+                    placeholder="Remark (optional)"
+                    value={(editItem as Letter).remark || ""}
+                    onChange={(e) =>
+                      setEditItem({ ...(editItem as Letter), remark: e.target.value })
                     }
                     mb={2}
                   />

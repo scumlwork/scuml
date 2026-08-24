@@ -1,11 +1,25 @@
 // server/src/routes/letterRoutes.js
 import express from "express";
+import multer from "multer";
 import Registration from "../models/Registration.js";
 import Letter from "../models/Letter.js";
 import { requireAuth, requireSuperadmin } from "../middleware/auth.js";
 import { escapeRegex, omitProtectedFields } from "../utils/sanitizeHelpers.js";
+import { scanBuffer } from "../utils/malwareScan.js";
+import { uploadBufferToCloudinary } from "../utils/cloudinaryUpload.js";
+import { recordAuditEvent } from "../utils/auditLogger.js";
 
 const router = express.Router();
+
+// 🔹 Optional photo gallery — buffered in memory so each file can be
+// malware-scanned before it's stored.
+const uploadPhotos = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB per photo
+  fileFilter: (req, file, cb) => {
+    cb(null, ["image/jpeg", "image/png"].includes(file.mimetype));
+  },
+});
 
 // 🔹 Add a new letter to a company
 router.post("/", requireAuth, async (req, res) => {
@@ -20,6 +34,7 @@ router.post("/", requireAuth, async (req, res) => {
       receiverName,
       phone,
       email,
+      remark,
       dateOfReporting,
     } = req.body;
 
@@ -39,6 +54,7 @@ router.post("/", requireAuth, async (req, res) => {
       receiverName,
       phone,
       email,
+      remark,
       dateOfReporting,
       tag: `Letter ${letterNumber}`,
       createdBy: username,
@@ -54,6 +70,46 @@ router.post("/", requireAuth, async (req, res) => {
     res.status(201).json(newLetter);
   } catch (err) {
     console.error("Error saving letter:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// 🔹 Upload an optional photo gallery for a letter/action
+router.post("/:id/photos", requireAuth, uploadPhotos.array("photos", 15), async (req, res) => {
+  try {
+    const files = req.files || [];
+    if (files.length === 0) {
+      return res.status(400).json({ error: "No files uploaded" });
+    }
+
+    for (const file of files) {
+      const result = await scanBuffer(file.buffer, file.originalname);
+      if (result.infected) {
+        recordAuditEvent(req, "malware_blocked", req.session.user.username);
+        return res.status(400).json({
+          error: `Upload rejected: malware detected (${result.viruses.join(", ") || "unknown"})`,
+        });
+      }
+    }
+
+    const uploaded = await Promise.all(
+      files.map((file) =>
+        uploadBufferToCloudinary(file.buffer, { folder: "scuml-action-photos" })
+      )
+    );
+    const urls = uploaded.map((r) => r.secure_url).filter(Boolean);
+
+    const letter = await Letter.findByIdAndUpdate(
+      req.params.id,
+      { $push: { photos: { $each: urls } } },
+      { new: true }
+    );
+
+    if (!letter) return res.status(404).json({ error: "Not found" });
+
+    res.json({ message: "Photos uploaded", photos: letter.photos });
+  } catch (err) {
+    console.error("❌ Error uploading photos:", err);
     res.status(500).json({ error: "Server error" });
   }
 });

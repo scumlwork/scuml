@@ -15,14 +15,17 @@ import {
   Card,
   CardBody,
 } from '@chakra-ui/react';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { LGA_BY_STATE } from '@/lib/nigeriaLocations';
+import { NATURE_OF_BUSINESS_OPTIONS } from '@/lib/natureOfBusiness';
+import { useAuth } from '@/context/AuthContext';
 
 export default function RegistrationPage() {
   const router = useRouter();
   const toast = useToast();
+  const { user } = useAuth();
   const today = new Date().toISOString().split('T')[0];
   const photosInputRef = useRef<HTMLInputElement>(null);
 
@@ -31,6 +34,7 @@ export default function RegistrationPage() {
     dateOfIdentification: today,
     companyName: '',
     natureOfBusiness: '',
+    companySize: '',
     address: '',
     state: '',
     city: '',
@@ -40,6 +44,15 @@ export default function RegistrationPage() {
   });
   const [photos, setPhotos] = useState<FileList | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Identification Officer defaults to the logged-in user, but stays editable.
+  useEffect(() => {
+    if (user?.username) {
+      setFormData((prev) =>
+        prev.officerName ? prev : { ...prev, officerName: user.username }
+      );
+    }
+  }, [user]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -150,12 +163,14 @@ export default function RegistrationPage() {
           <form onSubmit={handleSubmit}>
             <VStack spacing={5} align="stretch">
               <FormControl isRequired>
-                <FormLabel>Identification Office</FormLabel>
+                <FormLabel>Identification Officer</FormLabel>
                 <Input
                   name="officerName"
                   value={formData.officerName}
-                  onChange={handleChange}
-                  placeholder="Enter identification office"
+                  isReadOnly
+                  cursor="not-allowed"
+                  bg="gray.100"
+                  placeholder="Enter identification officer"
                 />
               </FormControl>
 
@@ -183,12 +198,30 @@ export default function RegistrationPage() {
 
               <FormControl isRequired>
                 <FormLabel>Nature of Business</FormLabel>
-                <Input
+                <Select
                   name="natureOfBusiness"
                   value={formData.natureOfBusiness}
                   onChange={handleChange}
-                  placeholder="Enter nature of business"
-                />
+                  placeholder="Select nature of business"
+                >
+                  {NATURE_OF_BUSINESS_OPTIONS.map((option) => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <FormControl isRequired>
+                <FormLabel>Company Size</FormLabel>
+                <Select
+                  name="companySize"
+                  value={formData.companySize}
+                  onChange={handleChange}
+                  placeholder="Select company size"
+                >
+                  <option value="Small">Small</option>
+                  <option value="Medium">Medium</option>
+                  <option value="Large">Large</option>
+                </Select>
               </FormControl>
 
               <FormControl isRequired>

@@ -51,12 +51,20 @@ import OffSiteInspectionForm from '@/components/forms/OffSiteInspectionForm';
 const DEFAULT_AVATAR =
   "https://res.cloudinary.com/dtseei2ze/image/upload/v1756982016/default-avatar_w9umu2.jpg";
 
+function formatEntryTime(createdAt?: string) {
+  if (!createdAt) return "";
+  const d = new Date(createdAt);
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
 type Letter = {
   _id: string;
   typeOfLetter: string;
   receiverName: string;
   phone: string;
   email: string;
+  remark?: string;
   dateOfReporting: string;
 };
 
@@ -189,6 +197,7 @@ type Registration = {
   dateOfIdentification: string;
   companyName: string;
   natureOfBusiness: string;
+  companySize?: string;
   address: string;
   state: string;
   city?: string;
@@ -197,6 +206,7 @@ type Registration = {
   email: string;
   photos?: string[];
   time?: string;
+  createdAt?: string;
   letters?: Letter[];
   sanctions?: Sanction[];
   onSiteInspections?: OnSiteInspection[];
@@ -484,6 +494,14 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
   const [addRecordType, setAddRecordType] = useState<
     'letter' | 'sanction' | 'violation' | 'training' | 'onsite' | 'offsite' | null
   >(null);
+  const addActionsFormRef = useRef<HTMLDivElement>(null);
+
+  // Scroll the opened form into view as soon as it renders.
+  useEffect(() => {
+    if (addRecordType) {
+      addActionsFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [addRecordType]);
 
   const handleAddRecordSuccess = async () => {
     const data = await fetchRegistrations();
@@ -864,12 +882,13 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
               </Box>
             )}
             <Box flex="1">
-              <Text fontWeight="medium" fontSize="sm">
+              <Text fontWeight="bold" fontSize="sm">
                 {reg.companyName}
               </Text>
-              <Text fontSize="xs" color="gray.600">
+              <Text fontSize="xs" color="gray.600" fontWeight="semibold">
                 Office: {reg.officerName} | Date: {reg.dateOfIdentification}{" "}
-                {reg.time || ""}
+                {formatEntryTime(reg.createdAt)} | Nature of Business:{" "}
+                {reg.natureOfBusiness}
               </Text>
             </Box>
           </Flex>
@@ -901,10 +920,11 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
                   <Text fontSize="lg" fontWeight="bold" mt={2} mb={1} color="red.600">
                     Registration Details
                   </Text>
-                  <Text><b>Identification Office:</b> {selectedRegistration.officerName}</Text>
+                  <Text><b>Identification Officer:</b> {selectedRegistration.officerName}</Text>
                   <Text><b>Date of Identification:</b> {selectedRegistration.dateOfIdentification}</Text>
                   <Text><b>Company Name:</b> {selectedRegistration.companyName}</Text>
                   <Text><b>Nature of Business:</b> {selectedRegistration.natureOfBusiness}</Text>
+                  <Text><b>Company Size:</b> {selectedRegistration.companySize || "N/A"}</Text>
                   <Text><b>Address:</b> {selectedRegistration.address}</Text>
                   <Text><b>State:</b> {selectedRegistration.state}</Text>
                   <Text><b>City:</b> {selectedRegistration.city || "N/A"}</Text>
@@ -937,9 +957,10 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
                       {selectedRegistration.letters.map((letter) => (
                         <Box key={letter._id} p={2} borderWidth="1px" borderRadius="md" mb={2}>
                           <Text><b>Type:</b> {letter.typeOfLetter}</Text>
-                          <Text><b>Receiver:</b> {letter.receiverName}</Text>
+                          <Text><b>Contact Person:</b> {letter.receiverName}</Text>
                           <Text><b>Phone:</b> {letter.phone}</Text>
                           <Text><b>Email:</b> {letter.email}</Text>
+                          <Text><b>Remark:</b> {letter.remark || "N/A"}</Text>
                           <Text><b>Date:</b> {letter.dateOfReporting}</Text>
                         </Box>
                       ))}
@@ -1228,17 +1249,19 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
   <Text fontSize="lg" fontWeight="bold" mb={2} color="gray.700">
     Add Actions
   </Text>
-  <HStack spacing={2} flexWrap="wrap" mb={addRecordType ? 4 : 0}>
-    <Button size="sm" colorScheme="blue" onClick={() => setAddRecordType('letter')}>Actions</Button>
-    <Button size="sm" colorScheme="green" onClick={() => setAddRecordType('onsite')}>On-Site Inspection</Button>
-    <Button size="sm" colorScheme="purple" onClick={() => setAddRecordType('offsite')}>Off-Site Inspection</Button>
-    <Button size="sm" colorScheme="orange" onClick={() => setAddRecordType('sanction')}>Sanction</Button>
-    <Button size="sm" colorScheme="red" onClick={() => setAddRecordType('violation')}>Violations</Button>
-    <Button size="sm" colorScheme="teal" onClick={() => setAddRecordType('training')}>Training</Button>
-  </HStack>
+  {!addRecordType && (
+    <HStack spacing={2} flexWrap="wrap">
+      <Button size="sm" colorScheme="blue" onClick={() => setAddRecordType('letter')}>Actions</Button>
+      <Button size="sm" colorScheme="green" onClick={() => setAddRecordType('onsite')}>On-Site Inspection</Button>
+      <Button size="sm" colorScheme="purple" onClick={() => setAddRecordType('offsite')}>Off-Site Inspection</Button>
+      <Button size="sm" colorScheme="orange" onClick={() => setAddRecordType('sanction')}>Sanction</Button>
+      <Button size="sm" colorScheme="red" onClick={() => setAddRecordType('violation')}>Violations</Button>
+      <Button size="sm" colorScheme="teal" onClick={() => setAddRecordType('training')}>Training</Button>
+    </HStack>
+  )}
 
   {addRecordType && (
-    <Box borderWidth="1px" borderRadius="md" p={4} bg="gray.50">
+    <Box ref={addActionsFormRef} borderWidth="1px" borderRadius="md" p={4} bg="gray.50">
       <HStack justify="space-between" mb={3}>
         <Text fontWeight="bold">
           {addRecordType === 'letter' && 'Add Action'}
@@ -1250,6 +1273,13 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
         </Text>
         <Button size="xs" variant="ghost" onClick={() => setAddRecordType(null)}>Cancel</Button>
       </HStack>
+
+      {addRecordType === 'letter' && (
+        <Text fontSize="sm" color="gray.500" mb={3}>
+          Entry Date & Time: {new Date().toLocaleDateString()}{' '}
+          {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </Text>
+      )}
 
       {addRecordType === 'letter' && (
         <LetterForm

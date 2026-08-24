@@ -9,6 +9,8 @@ const LetterSchema = new mongoose.Schema(
     receiverName: String,
     phone: String,
     email: String,
+    remark: { type: String, default: "" },
+    photos: { type: [String], default: [] },
     dateOfReporting: String,
     createdBy: { type: String, default: "" }, // store username who created this entry
   },

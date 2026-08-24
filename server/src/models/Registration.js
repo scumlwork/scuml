@@ -7,6 +7,11 @@ const RegistrationSchema = new mongoose.Schema(
     dateOfIdentification: { type: String, required: true },
     companyName: { type: String, required: true, unique: true },
     natureOfBusiness: { type: String, required: true },
+    companySize: {
+      type: String,
+      enum: ["Small", "Medium", "Large"],
+      required: true,
+    },
     address: { type: String, required: true },
     state: { type: String, enum: ["Edo", "Delta", "Ondo"], required: true },
     city: { type: String, required: true },
