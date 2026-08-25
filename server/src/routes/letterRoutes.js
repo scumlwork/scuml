@@ -31,12 +31,24 @@ router.post("/", requireAuth, async (req, res) => {
     const {
       companyName,
       typeOfLetter,
-      receiverName,
-      phone,
-      email,
+      contacts,
       remark,
       dateOfReporting,
     } = req.body;
+
+    const cleanContacts = Array.isArray(contacts)
+      ? contacts
+          .map((c) => ({
+            name: c?.name || "",
+            position: c?.position || "",
+            phone: c?.phone || "",
+            email: c?.email || "",
+          }))
+          .filter((c) => c.name && c.phone)
+      : [];
+    if (cleanContacts.length === 0) {
+      return res.status(400).json({ error: "At least one contact person (name and phone) is required." });
+    }
 
     // Find company by name
     const company = await Registration.findOne({ companyName }).lean();
@@ -47,13 +59,15 @@ router.post("/", requireAuth, async (req, res) => {
     // Count how many letters already exist for this company (use length from lean doc)
     const letterNumber = (company.letters?.length || 0) + 1;
 
-    // Create and save the new letter
+    // Create and save the new letter — legacy single-contact fields mirror
+    // the first contact so old display code / data consumers keep working.
     const newLetter = new Letter({
       company: company._id,
       typeOfLetter,
-      receiverName,
-      phone,
-      email,
+      contacts: cleanContacts,
+      receiverName: cleanContacts[0].name,
+      phone: cleanContacts[0].phone,
+      email: cleanContacts[0].email,
       remark,
       dateOfReporting,
       tag: `Letter ${letterNumber}`,
@@ -134,12 +148,22 @@ router.get("/search", requireAuth, async (req, res) => {
 // 🔹 Edit letter by ID
 router.put("/:id", requireAuth, async (req, res) => {
   try {
+    const update = omitProtectedFields(req.body);
+
+    // Keep the legacy single-contact fields mirroring contacts[0] whenever
+    // the contacts array is part of this update.
+    if (Array.isArray(update.contacts) && update.contacts.length > 0) {
+      update.receiverName = update.contacts[0].name;
+      update.phone = update.contacts[0].phone;
+      update.email = update.contacts[0].email;
+    }
+
     const updatedLetter = await Letter.findByIdAndUpdate(
       req.params.id,
       // Whoever edits a record becomes its new "Entered by" — multiple
       // people can touch the same entry over time, so it should always
       // reflect who most recently entered its current content.
-      { ...omitProtectedFields(req.body), createdBy: req.session.user.username },
+      { ...update, createdBy: req.session.user.username },
       { new: true, runValidators: true }
     );
 

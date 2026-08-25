@@ -64,6 +64,7 @@ type Letter = {
   receiverName: string;
   phone: string;
   email: string;
+  contacts?: { name: string; position: string; phone: string; email: string }[];
   remark?: string;
   dateOfReporting: string;
 };
@@ -785,6 +786,9 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
           <Text fontSize={{ base: "sm", md: "md" }} color="red.300">
             Special Control Unit Against Money Laundering
           </Text>
+          <Text fontSize={{ base: "xs", md: "sm" }} color="black" fontWeight="semibold">
+            Benin Zonal Directorate Database
+          </Text>
         </Box>
 
 {/* 🔹 Company search */}
@@ -964,9 +968,21 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
                       {selectedRegistration.letters.map((letter) => (
                         <Box key={letter._id} p={2} borderWidth="1px" borderRadius="md" mb={2}>
                           <Text><b>Type:</b> {letter.typeOfLetter}</Text>
-                          <Text><b>Contact Person:</b> {letter.receiverName}</Text>
-                          <Text><b>Phone:</b> {letter.phone}</Text>
-                          <Text><b>Email:</b> {letter.email}</Text>
+                          {letter.contacts && letter.contacts.length > 0 ? (
+                            letter.contacts.map((c, i) => (
+                              <Text key={i}>
+                                <b>Contact {letter.contacts!.length > 1 ? i + 1 : ''}:</b>{' '}
+                                {c.name}{c.position ? ` (${c.position})` : ''} — {c.phone}
+                                {c.email ? ` — ${c.email}` : ''}
+                              </Text>
+                            ))
+                          ) : (
+                            <>
+                              <Text><b>Contact Person:</b> {letter.receiverName}</Text>
+                              <Text><b>Phone:</b> {letter.phone}</Text>
+                              <Text><b>Email:</b> {letter.email}</Text>
+                            </>
+                          )}
                           <Text><b>Appointment Remark:</b> {letter.remark || "N/A"}</Text>
                           <Text><b>Appointment Date:</b> {letter.dateOfReporting}</Text>
                         </Box>

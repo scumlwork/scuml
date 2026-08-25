@@ -53,6 +53,7 @@ interface Letter {
   receiverName?: string;
   phone?: string;
   email?: string;
+  contacts?: { name: string; position: string; phone: string; email: string }[];
   remark?: string;
   photos?: string[];
   dateOfReporting?: string;
@@ -622,6 +623,15 @@ const [editType, setEditType] = useState<
   }
 };
 
+// 🔹 A letter's contacts array, falling back to its legacy single-contact
+// fields for older records saved before multiple contacts were supported.
+const getLetterContacts = (
+  letter: Letter
+): { name: string; position: string; phone: string; email: string }[] =>
+  letter.contacts && letter.contacts.length > 0
+    ? letter.contacts
+    : [{ name: letter.receiverName || "", position: "", phone: letter.phone || "", email: letter.email || "" }];
+
 // 🔹 Edit handler
 const handleEdit = (
   type:
@@ -912,9 +922,21 @@ const handleSaveEdit = async () => {
                       >
                         <Box>
                           <Text>Type: {letter.typeOfLetter}</Text>
-                          <Text>Contact Person: {letter.receiverName}</Text>
-                          <Text>Phone: {letter.phone || "N/A"}</Text>
-                          <Text>Email: {letter.email || "N/A"}</Text>
+                          {letter.contacts && letter.contacts.length > 0 ? (
+                            letter.contacts.map((c, i) => (
+                              <Text key={i}>
+                                Contact {letter.contacts!.length > 1 ? i + 1 : ''}: {c.name}
+                                {c.position ? ` (${c.position})` : ''} — {c.phone}
+                                {c.email ? ` — ${c.email}` : ''}
+                              </Text>
+                            ))
+                          ) : (
+                            <>
+                              <Text>Contact Person: {letter.receiverName}</Text>
+                              <Text>Phone: {letter.phone || "N/A"}</Text>
+                              <Text>Email: {letter.email || "N/A"}</Text>
+                            </>
+                          )}
                           <Text>Appointment Remark: {letter.remark || "N/A"}</Text>
                           <Text>Date: {letter.dateOfReporting}</Text>
                           <Text fontSize="xs" color="gray.500">
@@ -1500,30 +1522,72 @@ const handleSaveEdit = async () => {
                     }
                     mb={2}
                   />
-                  <Input
-                    placeholder="Contact Person"
-                    value={(editItem as Letter).receiverName || ""}
-                    onChange={(e) =>
-                      setEditItem({ ...(editItem as Letter), receiverName: e.target.value })
-                    }
-                    mb={2}
-                  />
-                  <Input
-                    placeholder="Phone"
-                    value={(editItem as Letter).phone || ""}
-                    onChange={(e) =>
-                      setEditItem({ ...(editItem as Letter), phone: e.target.value })
-                    }
-                    mb={2}
-                  />
-                  <Input
-                    placeholder="Email"
-                    value={(editItem as Letter).email || ""}
-                    onChange={(e) =>
-                      setEditItem({ ...(editItem as Letter), email: e.target.value })
-                    }
-                    mb={2}
-                  />
+                  <Box mb={2}>
+                    <Text fontSize="sm" fontWeight="semibold" mb={1}>Contact Persons</Text>
+                    {getLetterContacts(editItem as Letter).map((contact, idx) => {
+                      const current = getLetterContacts(editItem as Letter);
+                      const updateField = (field: "name" | "position" | "phone" | "email", value: string) => {
+                        const next = current.map((c, i) => (i === idx ? { ...c, [field]: value } : c));
+                        setEditItem({ ...(editItem as Letter), contacts: next });
+                      };
+                      return (
+                        <Box key={idx} borderWidth="1px" borderRadius="md" p={2} mb={2}>
+                          <HStack justify="space-between" mb={1}>
+                            <Text fontSize="xs" fontWeight="bold">Contact {idx + 1}</Text>
+                            {current.length > 1 && (
+                              <Button
+                                size="xs"
+                                variant="ghost"
+                                colorScheme="red"
+                                onClick={() =>
+                                  setEditItem({
+                                    ...(editItem as Letter),
+                                    contacts: current.filter((_, i) => i !== idx),
+                                  })
+                                }
+                              >
+                                Remove
+                              </Button>
+                            )}
+                          </HStack>
+                          <Input
+                            placeholder="Name"
+                            value={contact.name}
+                            onChange={(e) => updateField("name", e.target.value)}
+                            mb={1}
+                          />
+                          <Input
+                            placeholder="Position"
+                            value={contact.position}
+                            onChange={(e) => updateField("position", e.target.value)}
+                            mb={1}
+                          />
+                          <Input
+                            placeholder="Phone"
+                            value={contact.phone}
+                            onChange={(e) => updateField("phone", e.target.value)}
+                            mb={1}
+                          />
+                          <Input
+                            placeholder="Email"
+                            value={contact.email}
+                            onChange={(e) => updateField("email", e.target.value)}
+                          />
+                        </Box>
+                      );
+                    })}
+                    <Button
+                      size="xs"
+                      onClick={() =>
+                        setEditItem({
+                          ...(editItem as Letter),
+                          contacts: [...getLetterContacts(editItem as Letter), { name: "", position: "", phone: "", email: "" }],
+                        })
+                      }
+                    >
+                      + Add Contact Person
+                    </Button>
+                  </Box>
                   <Textarea
                     placeholder="Appointment Remark (optional)"
                     value={(editItem as Letter).remark || ""}
