@@ -2,6 +2,7 @@
 import express from "express";
 import multer from "multer";
 import Registration from "../models/Registration.js";
+import Counter from "../models/Counter.js";
 import Letter from "../models/Letter.js";
 import Sanction from "../models/Sanction.js";
 import OffSiteInspection from "../models/OffSiteInspection.js";
@@ -32,8 +33,16 @@ router.post("/", requireAuth, async (req, res) => {
     const username = req.session?.user?.username;
     if (!username) return res.status(401).json({ error: "Unauthorized" });
 
+    const counter = await Counter.findByIdAndUpdate(
+      "registrationSerial",
+      { $inc: { seq: 1 } },
+      { new: true, upsert: true }
+    );
+    const serialNumber = String(counter.seq).padStart(4, "0");
+
     const registration = new Registration({
       ...req.body,
+      serialNumber,
       createdBy: username,
     });
 

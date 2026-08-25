@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 
 const RegistrationSchema = new mongoose.Schema(
   {
+    serialNumber: { type: String, unique: true, sparse: true },
     officerName: { type: String, required: true },
     dateOfIdentification: { type: String, required: true },
     companyName: { type: String, required: true, unique: true },

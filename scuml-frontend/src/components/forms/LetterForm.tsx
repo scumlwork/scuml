@@ -34,9 +34,28 @@ const ACTIVITY_OPTIONS = [
   'Visitation',
   'Reminder',
   'Follow Up',
+  'Appointment/Next Appointment',
 ];
 
 const today = new Date().toISOString().split('T')[0];
+
+// Builds Google Calendar's event-creation URL, pre-filled with the
+// appointment date and remark — an all-day event since there's no time
+// field, just a date.
+function buildGoogleCalendarUrl(companyName: string, dateStr: string, remark: string) {
+  const start = dateStr.replace(/-/g, '');
+  const endDateObj = new Date(dateStr);
+  endDateObj.setDate(endDateObj.getDate() + 1);
+  const end = endDateObj.toISOString().split('T')[0].replace(/-/g, '');
+
+  const params = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: `SCUML Appointment — ${companyName}`,
+    dates: `${start}/${end}`,
+    details: remark || 'No remark provided.',
+  });
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}
 
 export default function LetterForm({ companyName, onSuccess }: CompanyFormProps) {
   const toast = useToast();
@@ -75,6 +94,13 @@ export default function LetterForm({ companyName, onSuccess }: CompanyFormProps)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
+
+    // Open the calendar tab synchronously, inside the click's trusted-event
+    // window — opening it later (after the async save) gets silently
+    // blocked as a popup by Chrome. Navigate this blank tab once we know
+    // the save succeeded, or close it if it didn't.
+    const calendarWindow = window.open('', '_blank');
+
     try {
       const csrfRes = await axios.get(
         `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/csrf-token`,
@@ -100,6 +126,10 @@ export default function LetterForm({ companyName, onSuccess }: CompanyFormProps)
         await uploadPhotosInBackground(res.data._id, csrfToken);
       }
 
+      if (calendarWindow) {
+        calendarWindow.location.href = buildGoogleCalendarUrl(companyName, dateOfReporting, remark);
+      }
+
       toast({
         title: 'Action submitted.',
         description: 'The action has been successfully saved.',
@@ -109,6 +139,7 @@ export default function LetterForm({ companyName, onSuccess }: CompanyFormProps)
       });
       onSuccess();
     } catch (err) {
+      calendarWindow?.close();
       console.error(err);
       toast({
         title: 'Error',
@@ -159,7 +190,7 @@ export default function LetterForm({ companyName, onSuccess }: CompanyFormProps)
         </FormControl>
 
         <FormControl>
-          <FormLabel>Remark (optional)</FormLabel>
+          <FormLabel>Appointment Remark (optional)</FormLabel>
           <Textarea
             value={remark}
             onChange={(e) => setRemark(e.target.value)}
@@ -168,7 +199,7 @@ export default function LetterForm({ companyName, onSuccess }: CompanyFormProps)
         </FormControl>
 
         <FormControl isRequired>
-          <FormLabel>Date of Reporting</FormLabel>
+          <FormLabel>Appointment Date</FormLabel>
           <Input
             type="date"
             value={dateOfReporting}

@@ -12,7 +12,7 @@ export function escapeRegex(str) {
 // Strips fields a client should never be able to set directly on an update —
 // identity/audit metadata and relationship keys that only the server (or a
 // dedicated endpoint, e.g. Violation's /pay route) should control.
-const PROTECTED_FIELDS = ["_id", "__v", "company", "createdAt", "updatedAt", "createdBy"];
+const PROTECTED_FIELDS = ["_id", "__v", "company", "createdAt", "updatedAt", "createdBy", "serialNumber"];
 export function omitProtectedFields(body) {
   const out = { ...(body || {}) };
   for (const key of PROTECTED_FIELDS) delete out[key];

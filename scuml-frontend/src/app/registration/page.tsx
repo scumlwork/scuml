@@ -9,6 +9,7 @@ import {
   FormControl,
   FormLabel,
   VStack,
+  HStack,
   Heading,
   useToast,
   Container,
@@ -56,7 +57,41 @@ export default function RegistrationPage() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    if (e.target.name === 'companyName') {
+      setDuplicateAccepted(null);
+    }
   };
+
+  // 🔹 Duplicate-company check — as the officer types a company name, look
+  // for an existing registration with the same name so they can confirm it
+  // before accidentally registering the same company twice.
+  const [duplicateMatches, setDuplicateMatches] = useState<
+    { _id: string; companyName: string }[]
+  >([]);
+  const [duplicateAccepted, setDuplicateAccepted] = useState<
+    { _id: string; companyName: string } | null
+  >(null);
+
+  useEffect(() => {
+    const name = formData.companyName.trim();
+    if (duplicateAccepted || name.length < 2) {
+      setDuplicateMatches([]);
+      return;
+    }
+    const timeout = setTimeout(async () => {
+      try {
+        const res = await axios.get(
+          `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/registrations/search?query=${encodeURIComponent(name)}`,
+          { withCredentials: true }
+        );
+        setDuplicateMatches(res.data || []);
+      } catch (err) {
+        console.error('Company duplicate check failed:', err);
+      }
+    }, 300);
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.companyName, duplicateAccepted]);
 
   // City's options depend on which State is selected — changing State
   // clears City rather than leaving a now-invalid LGA selected.
@@ -196,6 +231,49 @@ export default function RegistrationPage() {
                 />
               </FormControl>
 
+              {duplicateMatches.length > 0 && !duplicateAccepted && (
+                <Box borderWidth="1px" borderRadius="md" p={3} bg="yellow.50">
+                  <Text fontSize="sm" fontWeight="bold" mb={2}>
+                    A company with a similar name already exists. Do you mean this company?
+                  </Text>
+                  <VStack align="stretch" spacing={2} mb={2}>
+                    {duplicateMatches.map((m) => (
+                      <HStack key={m._id} justify="space-between" bg="white" p={2} borderRadius="md">
+                        <Text fontSize="sm">{m.companyName}</Text>
+                        <Button
+                          size="xs"
+                          colorScheme="orange"
+                          onClick={() => setDuplicateAccepted(m)}
+                        >
+                          Yes, this is it
+                        </Button>
+                      </HStack>
+                    ))}
+                  </VStack>
+                  <Button size="xs" variant="ghost" onClick={() => setDuplicateMatches([])}>
+                    Cancel — this is a different company
+                  </Button>
+                </Box>
+              )}
+
+              {duplicateAccepted && (
+                <Box borderWidth="1px" borderRadius="md" p={3} bg="red.50" borderColor="red.300">
+                  <Text fontSize="sm" color="red.700">
+                    &quot;{duplicateAccepted.companyName}&quot; is already registered. To avoid
+                    a duplicate entry, please find it on the home page instead of submitting a
+                    new registration.
+                  </Text>
+                  <Button
+                    size="xs"
+                    mt={2}
+                    variant="ghost"
+                    onClick={() => setDuplicateAccepted(null)}
+                  >
+                    Actually, it&apos;s a different company
+                  </Button>
+                </Box>
+              )}
+
               <FormControl isRequired>
                 <FormLabel>Nature of Business</FormLabel>
                 <Select
@@ -321,7 +399,7 @@ export default function RegistrationPage() {
                 _hover={{ bg: 'red.600' }}
                 isLoading={submitting}
                 loadingText="Submitting…"
-                isDisabled={submitting}
+                isDisabled={submitting || !!duplicateAccepted}
               >
                 Submit Registration
               </Button>

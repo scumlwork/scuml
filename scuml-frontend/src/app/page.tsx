@@ -193,6 +193,7 @@ type OffSiteInspection = {
 // 🔹 Extend Registration
 type Registration = {
   _id: string;
+  serialNumber?: string;
   officerName: string;
   dateOfIdentification: string;
   companyName: string;
@@ -345,9 +346,14 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
   const [homeSearchQuery, setHomeSearchQuery] = useState('');
   const homeSearchResults =
     homeSearchQuery.trim().length > 0
-      ? registrations.filter((r) =>
-          r.companyName?.toLowerCase().includes(homeSearchQuery.trim().toLowerCase())
-        )
+      ? registrations.filter((r) => {
+          const q = homeSearchQuery.trim();
+          const matchesName = r.companyName?.toLowerCase().includes(q.toLowerCase());
+          // "1", "01", "001", "0001" should all match serial number 0001.
+          const matchesSerial =
+            /^\d+$/.test(q) && r.serialNumber != null && Number(r.serialNumber) === Number(q);
+          return matchesName || matchesSerial;
+        })
       : [];
 
   const {
@@ -883,7 +889,7 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
             )}
             <Box flex="1">
               <Text fontWeight="bold" fontSize="sm">
-                {reg.companyName}
+                {reg.serialNumber ? `${reg.serialNumber} — ` : ""}{reg.companyName}
               </Text>
               <Text fontSize="xs" color="gray.600" fontWeight="semibold">
                 Office: {reg.officerName} | Date: {reg.dateOfIdentification}{" "}
@@ -920,6 +926,7 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
                   <Text fontSize="lg" fontWeight="bold" mt={2} mb={1} color="red.600">
                     Registration Details
                   </Text>
+                  <Text><b>Serial Number:</b> {selectedRegistration.serialNumber || "N/A"}</Text>
                   <Text><b>Identification Officer:</b> {selectedRegistration.officerName}</Text>
                   <Text><b>Date of Identification:</b> {selectedRegistration.dateOfIdentification}</Text>
                   <Text><b>Company Name:</b> {selectedRegistration.companyName}</Text>
@@ -960,8 +967,8 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
                           <Text><b>Contact Person:</b> {letter.receiverName}</Text>
                           <Text><b>Phone:</b> {letter.phone}</Text>
                           <Text><b>Email:</b> {letter.email}</Text>
-                          <Text><b>Remark:</b> {letter.remark || "N/A"}</Text>
-                          <Text><b>Date:</b> {letter.dateOfReporting}</Text>
+                          <Text><b>Appointment Remark:</b> {letter.remark || "N/A"}</Text>
+                          <Text><b>Appointment Date:</b> {letter.dateOfReporting}</Text>
                         </Box>
                       ))}
                     </Box>

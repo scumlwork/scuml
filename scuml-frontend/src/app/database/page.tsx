@@ -205,6 +205,7 @@ interface Training {
 
 interface Registration {
   _id: string;
+  serialNumber?: string;
   companyName: string;
   officerName: string;
   dateOfIdentification?: string;
@@ -837,7 +838,7 @@ const handleSaveEdit = async () => {
               _hover={{ bg: "gray.50", cursor: "pointer" }}
             >
               <Text fontWeight="bold" fontSize="sm">
-                {reg.companyName}
+                {reg.serialNumber ? `${reg.serialNumber} — ` : ""}{reg.companyName}
               </Text>
               <Text fontSize="xs">{reg.officerName}</Text>
               <Text fontSize="xs" color="gray.500">
@@ -868,6 +869,7 @@ const handleSaveEdit = async () => {
                       Edit
                     </Button>
                   </HStack>
+                  <Text>Serial Number: {selectedCompany.serialNumber || "N/A"}</Text>
                   <Text>Identification Officer: {selectedCompany.officerName}</Text>
                   <Text>Date of Identification: {selectedCompany.dateOfIdentification || "N/A"}</Text>
                   <Text>Company Name: {selectedCompany.companyName}</Text>
@@ -913,7 +915,7 @@ const handleSaveEdit = async () => {
                           <Text>Contact Person: {letter.receiverName}</Text>
                           <Text>Phone: {letter.phone || "N/A"}</Text>
                           <Text>Email: {letter.email || "N/A"}</Text>
-                          <Text>Remark: {letter.remark || "N/A"}</Text>
+                          <Text>Appointment Remark: {letter.remark || "N/A"}</Text>
                           <Text>Date: {letter.dateOfReporting}</Text>
                           <Text fontSize="xs" color="gray.500">
                             Entered by: {letter.createdBy}
@@ -1523,7 +1525,7 @@ const handleSaveEdit = async () => {
                     mb={2}
                   />
                   <Textarea
-                    placeholder="Remark (optional)"
+                    placeholder="Appointment Remark (optional)"
                     value={(editItem as Letter).remark || ""}
                     onChange={(e) =>
                       setEditItem({ ...(editItem as Letter), remark: e.target.value })
@@ -1532,7 +1534,7 @@ const handleSaveEdit = async () => {
                   />
                   <Input
                     type="date"
-                    placeholder="Date"
+                    placeholder="Appointment Date"
                     value={(editItem as Letter).dateOfReporting || ""}
                     onChange={(e) =>
                       setEditItem({ ...(editItem as Letter), dateOfReporting: e.target.value })
