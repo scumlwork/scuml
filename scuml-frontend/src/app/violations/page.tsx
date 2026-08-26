@@ -35,9 +35,9 @@ export default function ViolationsPage() {
   const router = useRouter();
   const { user } = useAuth();
 
-  // Guest accounts may only act on the Identification section.
+  // Violations is superadmin-only.
   useEffect(() => {
-    if (user && user.role === 'guest') router.replace('/');
+    if (user && user.role !== 'superadmin') router.replace('/');
   }, [user, router]);
 
   // 🔹 Handle company search — includes each company's existing open violation, if any

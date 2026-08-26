@@ -645,9 +645,9 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
     { label: "Actions", path: "letters", superadminOnly: true, ownerOnly: false, guestVisible: false },
     { label: "On-Site Inspection", path: "on-site-inspection", superadminOnly: false, ownerOnly: false, guestVisible: false },
     { label: "Off-Site Inspection", path: "off-site-inspection", superadminOnly: false, ownerOnly: false, guestVisible: false },
-    { label: "Sanction", path: "sanction", superadminOnly: false, ownerOnly: false, guestVisible: false },
-    { label: "Violations", path: "violations", superadminOnly: false, ownerOnly: false, guestVisible: false },
-    { label: "Training", path: "training", superadminOnly: false, ownerOnly: false, guestVisible: false },
+    { label: "Sanction Registration", path: "sanction", superadminOnly: false, ownerOnly: false, guestVisible: false },
+    { label: "Violations", path: "violations", superadminOnly: true, ownerOnly: false, guestVisible: false },
+    { label: "Training", path: "training", superadminOnly: true, ownerOnly: false, guestVisible: false },
     { label: "Admin", path: "database", superadminOnly: true, ownerOnly: false, guestVisible: false },      // ✅ links to /database
     { label: "User", path: "register", superadminOnly: true, ownerOnly: false, guestVisible: false },
     { label: "Audit Log", path: "audit-log", superadminOnly: true, ownerOnly: true, guestVisible: false },
@@ -1063,9 +1063,11 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
       <Text fontSize="lg" fontWeight="bold" color="orange.700">
         Violations
       </Text>
-      <Button size="xs" colorScheme="red" variant="outline" onClick={() => setAddRecordType('violation')}>
-        + Add More
-      </Button>
+      {user.role === 'superadmin' && (
+        <Button size="xs" colorScheme="red" variant="outline" onClick={() => setAddRecordType('violation')}>
+          + Add More
+        </Button>
+      )}
     </HStack>
     {selectedRegistration.violations.map((violation) =>
       violationCards(violation).map((card, idx) => (
@@ -1188,9 +1190,11 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
                         <Text fontSize="lg" fontWeight="bold" color="teal.600">
                           Trainings
                         </Text>
-                        <Button size="xs" colorScheme="teal" variant="outline" onClick={() => setAddRecordType('training')}>
-                          + Add More
-                        </Button>
+                        {user.role === 'superadmin' && (
+                          <Button size="xs" colorScheme="teal" variant="outline" onClick={() => setAddRecordType('training')}>
+                            + Add More
+                          </Button>
+                        )}
                       </HStack>
                       {selectedRegistration.trainings.map((t) => (
                         <Box key={t._id} p={2} borderWidth="1px" borderRadius="md" mb={2}>
@@ -1327,9 +1331,13 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
       )}
       <Button size="sm" colorScheme="green" onClick={() => setAddRecordType('onsite')}>On-Site Inspection</Button>
       <Button size="sm" colorScheme="purple" onClick={() => setAddRecordType('offsite')}>Off-Site Inspection</Button>
-      <Button size="sm" colorScheme="orange" onClick={() => setAddRecordType('sanction')}>Sanction</Button>
-      <Button size="sm" colorScheme="red" onClick={() => setAddRecordType('violation')}>Violations</Button>
-      <Button size="sm" colorScheme="teal" onClick={() => setAddRecordType('training')}>Training</Button>
+      <Button size="sm" colorScheme="orange" onClick={() => setAddRecordType('sanction')}>Sanction Registration</Button>
+      {user.role === 'superadmin' && (
+        <Button size="sm" colorScheme="red" onClick={() => setAddRecordType('violation')}>Violations</Button>
+      )}
+      {user.role === 'superadmin' && (
+        <Button size="sm" colorScheme="teal" onClick={() => setAddRecordType('training')}>Training</Button>
+      )}
     </HStack>
   )}
 

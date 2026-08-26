@@ -2,14 +2,14 @@
 import express from "express";
 import Violation from "../models/Violation.js";
 import Registration from "../models/Registration.js";
-import { requireAuth, requireSuperadmin, requireStaffOrAbove } from "../middleware/auth.js";
+import { requireAuth, requireSuperadmin } from "../middleware/auth.js";
 import { escapeRegex, omitProtectedFields } from "../utils/sanitizeHelpers.js";
 import { recordRecentActivity, clearRecentActivityFor } from "../utils/recentActivity.js";
 
 const router = express.Router();
 
-// Guest accounts may only act on the Identification section.
-router.use(requireStaffOrAbove);
+// Violations is superadmin-only — not visible or usable by staff or guest.
+router.use(requireSuperadmin);
 
 // 🔹 Create new violation
 router.post("/", requireAuth, async (req, res) => {

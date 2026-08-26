@@ -17,9 +17,9 @@ export default function TrainingPage() {
   const router = useRouter();
   const { user } = useAuth();
 
-  // Guest accounts may only act on the Identification section.
+  // Training is superadmin-only.
   useEffect(() => {
-    if (user && user.role === "guest") router.replace("/");
+    if (user && user.role !== "superadmin") router.replace("/");
   }, [user, router]);
 
   // --- Live Search Companies ---

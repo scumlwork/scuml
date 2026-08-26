@@ -1,14 +1,14 @@
 import express from "express";
 import Training from "../models/Training.js";
 import Registration from "../models/Registration.js";
-import { requireAuth, requireStaffOrAbove } from "../middleware/auth.js";
+import { requireAuth, requireSuperadmin } from "../middleware/auth.js";
 import { omitProtectedFields } from "../utils/sanitizeHelpers.js";
 import { recordRecentActivity, clearRecentActivityFor } from "../utils/recentActivity.js";
 
 const router = express.Router();
 
-// Guest accounts may only act on the Identification section.
-router.use(requireStaffOrAbove);
+// Training is superadmin-only — not visible or usable by staff or guest.
+router.use(requireSuperadmin);
 
 // 🔹 Create new Training
 router.post("/", requireAuth, async (req, res) => {
