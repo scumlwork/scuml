@@ -66,6 +66,7 @@ type Letter = {
   email: string;
   contacts?: { name: string; position: string; phone: string; email: string }[];
   remark?: string;
+  photos?: string[];
   dateOfReporting: string;
 };
 
@@ -75,6 +76,7 @@ type Sanction = {
   natureOfBusiness: string;
   amount: number;
   modeOfPayment: string;
+  receiptUrl?: string;
 };
 
 type Violation = {
@@ -336,6 +338,7 @@ export default function HomePage() {
   const [csrfToken, setCsrfToken] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { isOpen, onOpen, onClose } = useDisclosure();
+  const { isOpen: isLinksOpen, onOpen: onLinksOpen, onClose: onLinksClose } = useDisclosure();
 
   // 🔹 Registrations state
   const [registrations, setRegistrations] = useState<Registration[]>([]);
@@ -638,19 +641,20 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
   boxSizing="border-box"
 >
   {[
-    { label: "Identification", path: "registration", superadminOnly: false, ownerOnly: false }, // ✅ links to /registration
-    { label: "Actions", path: "letters", superadminOnly: false, ownerOnly: false },
-    { label: "On-Site Inspection", path: "on-site-inspection", superadminOnly: false, ownerOnly: false },
-    { label: "Off-Site Inspection", path: "off-site-inspection", superadminOnly: false, ownerOnly: false },
-    { label: "Sanction", path: "sanction", superadminOnly: false, ownerOnly: false },
-    { label: "Violations", path: "violations", superadminOnly: false, ownerOnly: false },
-    { label: "Training", path: "training", superadminOnly: false, ownerOnly: false },
-    { label: "Admin", path: "database", superadminOnly: true, ownerOnly: false },      // ✅ links to /database
-    { label: "Create User", path: "register", superadminOnly: true, ownerOnly: false },
-    { label: "Audit Log", path: "audit-log", superadminOnly: true, ownerOnly: true },
+    { label: "Identification", path: "registration", superadminOnly: false, ownerOnly: false, guestVisible: true }, // ✅ links to /registration
+    { label: "Actions", path: "letters", superadminOnly: true, ownerOnly: false, guestVisible: false },
+    { label: "On-Site Inspection", path: "on-site-inspection", superadminOnly: false, ownerOnly: false, guestVisible: false },
+    { label: "Off-Site Inspection", path: "off-site-inspection", superadminOnly: false, ownerOnly: false, guestVisible: false },
+    { label: "Sanction", path: "sanction", superadminOnly: false, ownerOnly: false, guestVisible: false },
+    { label: "Violations", path: "violations", superadminOnly: false, ownerOnly: false, guestVisible: false },
+    { label: "Training", path: "training", superadminOnly: false, ownerOnly: false, guestVisible: false },
+    { label: "Admin", path: "database", superadminOnly: true, ownerOnly: false, guestVisible: false },      // ✅ links to /database
+    { label: "User", path: "register", superadminOnly: true, ownerOnly: false, guestVisible: false },
+    { label: "Audit Log", path: "audit-log", superadminOnly: true, ownerOnly: true, guestVisible: false },
   ]
     .filter((item) => !item.superadminOnly || user.role === "superadmin")
     .filter((item) => !item.ownerOnly || user.isOwner)
+    .filter((item) => item.guestVisible || user.role !== "guest")
     .map((item) => (
     <Button
       key={item.label}
@@ -672,8 +676,33 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
   ))}
 </Box>
 
-
-
+{/* External reference links — not shown to guest, who only gets Identification */}
+{user.role !== 'guest' && (
+<Box
+  w="full"
+  display="flex"
+  flexDirection="column"
+  gap={2}
+  px={1}
+  mt={2}
+  boxSizing="border-box"
+>
+  <Button
+    size="sm"
+    w="90%"
+    mx="auto"
+    px={3}
+    py={2}
+    bg="blue.600"
+    color="white"
+    _hover={{ bg: "blue.700" }}
+    boxSizing="border-box"
+    onClick={onLinksOpen}
+  >
+    Links
+  </Button>
+</Box>
+)}
 
       {/* Logout */}
       <Button mt={4} onClick={logout} colorScheme="gray" size="sm" h="36px" w="90%" mx="auto">
@@ -954,16 +983,19 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
                     </Link>
                   )}
 
-                  {/* Letters / Actions */}
-                  {selectedRegistration.letters && selectedRegistration.letters.length > 0 && (
+                  {/* Letters / Actions — data stays visible to staff, only the
+                      superadmin can add more; guest can't see this section at all */}
+                  {user.role !== 'guest' && selectedRegistration.letters && selectedRegistration.letters.length > 0 && (
                     <Box mt={4}>
                       <HStack justify="space-between" mb={2}>
                         <Text fontSize="lg" fontWeight="bold" color="blue.600">
                           Actions
                         </Text>
-                        <Button size="xs" colorScheme="blue" variant="outline" onClick={() => setAddRecordType('letter')}>
-                          + Add More
-                        </Button>
+                        {user.role === 'superadmin' && (
+                          <Button size="xs" colorScheme="blue" variant="outline" onClick={() => setAddRecordType('letter')}>
+                            + Add More
+                          </Button>
+                        )}
                       </HStack>
                       {selectedRegistration.letters.map((letter) => (
                         <Box key={letter._id} p={2} borderWidth="1px" borderRadius="md" mb={2}>
@@ -985,13 +1017,22 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
                           )}
                           <Text><b>Appointment Remark:</b> {letter.remark || "N/A"}</Text>
                           <Text><b>Appointment Date:</b> {letter.dateOfReporting}</Text>
+                          {letter.photos && letter.photos.length > 0 && (
+                            <Link
+                              color="blue.600"
+                              fontWeight="medium"
+                              onClick={() => openLightbox(letter.photos!)}
+                            >
+                              View Photos ({letter.photos.length})
+                            </Link>
+                          )}
                         </Box>
                       ))}
                     </Box>
                   )}
 
                  {/* Sanctions */}
-{selectedRegistration.sanctions && selectedRegistration.sanctions.length > 0 && (
+{user.role !== 'guest' && selectedRegistration.sanctions && selectedRegistration.sanctions.length > 0 && (
   <Box mt={4}>
     <HStack justify="space-between" mb={2}>
       <Text fontSize="lg" fontWeight="bold" color="orange.600">
@@ -1006,12 +1047,17 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
         <Text><b>Nature of Business:</b> {sanction.natureOfBusiness}</Text>
         <Text><b>Amount:</b> ₦{sanction.amount?.toLocaleString()}</Text>
         <Text><b>Mode of Payment:</b> {sanction.modeOfPayment}</Text>
+        {sanction.receiptUrl && (
+          <Link color="blue.600" fontWeight="medium" href={sanction.receiptUrl} isExternal>
+            View Receipt
+          </Link>
+        )}
       </Box>
     ))}
   </Box>
 )}
 
-{selectedRegistration.violations && selectedRegistration.violations.length > 0 && (
+{user.role !== 'guest' && selectedRegistration.violations && selectedRegistration.violations.length > 0 && (
   <Box mt={4}>
     <HStack justify="space-between" mb={2}>
       <Text fontSize="lg" fontWeight="bold" color="orange.700">
@@ -1040,7 +1086,7 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
 )}
 
                   {/* On-Site Inspections */}
-                  {selectedRegistration.onSiteInspections && selectedRegistration.onSiteInspections.length > 0 && (
+                  {user.role !== 'guest' && selectedRegistration.onSiteInspections && selectedRegistration.onSiteInspections.length > 0 && (
                     <Box mt={4}>
                       <HStack justify="space-between" mb={2}>
                         <Text fontSize="lg" fontWeight="bold" color="green.600">
@@ -1136,7 +1182,7 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
                   )}
 
                   {/* Trainings */}
-                  {selectedRegistration.trainings && selectedRegistration.trainings.length > 0 && (
+                  {user.role !== 'guest' && selectedRegistration.trainings && selectedRegistration.trainings.length > 0 && (
                     <Box mt={4}>
                       <HStack justify="space-between" mb={2}>
                         <Text fontSize="lg" fontWeight="bold" color="teal.600">
@@ -1162,7 +1208,7 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
 
 
                  {/* Off-Site Inspections */}
-{selectedRegistration.offSiteInspections && selectedRegistration.offSiteInspections.length > 0 && (
+{user.role !== 'guest' && selectedRegistration.offSiteInspections && selectedRegistration.offSiteInspections.length > 0 && (
   <Box mt={4}>
     <HStack justify="space-between" mb={2}>
       <Text fontSize="lg" fontWeight="bold" color="purple.600">
@@ -1267,14 +1313,18 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
 
 {/* Add Actions — pick a record type to add for this company without
     leaving the compliance record. Same forms as the side-nav pages,
-    just embedded here with the company already selected. */}
+    just embedded here with the company already selected. Hidden entirely
+    for guest (Identification-only); "Actions" itself is superadmin-only. */}
+{user.role !== 'guest' && (
 <Box mt={6} pt={4} borderTopWidth="1px">
   <Text fontSize="lg" fontWeight="bold" mb={2} color="gray.700">
     Add Actions
   </Text>
   {!addRecordType && (
     <HStack spacing={2} flexWrap="wrap">
-      <Button size="sm" colorScheme="blue" onClick={() => setAddRecordType('letter')}>Actions</Button>
+      {user.role === 'superadmin' && (
+        <Button size="sm" colorScheme="blue" onClick={() => setAddRecordType('letter')}>Actions</Button>
+      )}
       <Button size="sm" colorScheme="green" onClick={() => setAddRecordType('onsite')}>On-Site Inspection</Button>
       <Button size="sm" colorScheme="purple" onClick={() => setAddRecordType('offsite')}>Off-Site Inspection</Button>
       <Button size="sm" colorScheme="orange" onClick={() => setAddRecordType('sanction')}>Sanction</Button>
@@ -1350,7 +1400,7 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
     </Box>
   )}
 </Box>
-
+)}
 
 
 
@@ -1363,6 +1413,35 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
 
                 </Box>
               )}
+          </ModalBody>
+        </ModalContent>
+      </Modal>
+
+      {/* 🔹 Links popup — external reference sites */}
+      <Modal isOpen={isLinksOpen} onClose={onLinksClose} isCentered>
+        <ModalOverlay />
+        <ModalContent mx={4}>
+          <ModalHeader>Links</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody pb={6}>
+            <VStack spacing={3} align="stretch">
+              {[
+                { label: "SCUML Portal", url: "https://scumlportal.efcc.gov.ng/sculin.php" },
+                { label: "CAC/BOR", url: "https://bor.cac.gov.ng/" },
+                { label: "Scuml Website", url: "https://scuml.efcc.gov.ng/" },
+              ].map((item) => (
+                <Button
+                  key={item.label}
+                  as="a"
+                  href={item.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  colorScheme="blue"
+                >
+                  {item.label}
+                </Button>
+              ))}
+            </VStack>
           </ModalBody>
         </ModalContent>
       </Modal>

@@ -72,7 +72,7 @@ router.post(
   [
     body('username').isString().isLength({ min: 3, max: 64 }).trim().escape(),
     body('password').isString(),
-    body('role').optional().isIn(['superadmin', 'staff']),
+    body('role').optional().isIn(['superadmin', 'staff', 'guest']),
   ],
   async (req, res) => {
     try {

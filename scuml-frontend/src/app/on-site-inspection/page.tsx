@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Box, Input } from "@chakra-ui/react";
 import axios from "axios";
 import OnSiteInspectionForm from "@/components/forms/OnSiteInspectionForm";
+import { useAuth } from "@/context/AuthContext";
 
 type Company = {
   _id: string;
@@ -17,10 +18,16 @@ export default function OnSiteInspectionPage() {
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [isClient, setIsClient] = useState(false);
   const router = useRouter();
+  const { user } = useAuth();
 
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  // Guest accounts may only act on the Identification section.
+  useEffect(() => {
+    if (user && user.role === "guest") router.replace("/");
+  }, [user, router]);
 
   // --- Live Search Companies ---
   useEffect(() => {

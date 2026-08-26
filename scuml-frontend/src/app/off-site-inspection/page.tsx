@@ -9,10 +9,11 @@ import {
   ListItem,
   Spinner,
 } from '@chakra-ui/react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import OffSiteInspectionForm from '@/components/forms/OffSiteInspectionForm';
+import { useAuth } from '@/context/AuthContext';
 
 type Company = {
   _id: string;
@@ -25,6 +26,12 @@ export default function OffSiteInspectionPage() {
   const [loading, setLoading] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const router = useRouter();
+  const { user } = useAuth();
+
+  // Guest accounts may only act on the Identification section.
+  useEffect(() => {
+    if (user && user.role === 'guest') router.replace('/');
+  }, [user, router]);
 
   // 🔍 Search companies
   const handleSearch = async (e: React.ChangeEvent<HTMLInputElement>) => {

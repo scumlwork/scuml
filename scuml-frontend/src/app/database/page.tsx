@@ -40,7 +40,7 @@ import {
   Td,
 } from "@chakra-ui/react";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { ChevronLeftIcon, ChevronRightIcon } from "@chakra-ui/icons";
 import { LGA_BY_STATE } from "@/lib/nigeriaLocations";
@@ -343,6 +343,7 @@ function PhotoLightbox({
 
 export default function DatabasePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, loading: authLoading } = useAuth();
 
   // 🔒 TOTP verification state
@@ -488,6 +489,17 @@ const [editType, setEditType] = useState<
     // toast is stable from Chakra and this runs after verification once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isVerified]);
+
+  // 🔹 Deep-link support — Recent Activity's "Edit" links here with
+  // ?company=<id> to jump straight to that company's record.
+  useEffect(() => {
+    if (registrations.length === 0) return;
+    const companyId = searchParams.get("company");
+    if (companyId) {
+      handleSelectCompany(companyId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [registrations]);
 
   // While checking TOTP, show spinner (hooks already declared above so no conditional hooks)
   if (isVerified === null || authLoading) {
@@ -794,9 +806,14 @@ const handleSaveEdit = async () => {
   return (
     <Box p={6}>
       {/* 🔹 Header */}
-      <Text fontSize="lg" fontWeight="semibold" mb={3}>
-        Total Compliance Records: {registrations.length}
-      </Text>
+      <HStack justify="space-between" mb={3} flexWrap="wrap" gap={2}>
+        <Text fontSize="lg" fontWeight="semibold">
+          Total Compliance Records: {registrations.length}
+        </Text>
+        <Button size="sm" colorScheme="blue" onClick={() => router.push("/recent-activity")}>
+          Recent Activity
+        </Button>
+      </HStack>
 
       {/* 🔍 Search Bar */}
       <Box mb={4} position="relative">
@@ -939,6 +956,15 @@ const handleSaveEdit = async () => {
                           )}
                           <Text>Appointment Remark: {letter.remark || "N/A"}</Text>
                           <Text>Date: {letter.dateOfReporting}</Text>
+                          {letter.photos && letter.photos.length > 0 && (
+                            <Link
+                              color="blue.600"
+                              fontWeight="medium"
+                              onClick={() => openLightbox(letter.photos!)}
+                            >
+                              View Photos ({letter.photos.length})
+                            </Link>
+                          )}
                           <Text fontSize="xs" color="gray.500">
                             Entered by: {letter.createdBy}
                           </Text>

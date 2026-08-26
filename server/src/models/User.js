@@ -13,7 +13,7 @@ const UserSchema = new mongoose.Schema(
 {
 username: { type: String, required: true, unique: true, index: true, trim: true, minlength: 3, maxlength: 64 },
 passwordHash: { type: String, required: true },
-role: { type: String, enum: ['superadmin', 'staff'], default: 'staff' },
+role: { type: String, enum: ['superadmin', 'staff', 'guest'], default: 'staff' },
 // A single account (the original superadmin) — owner status is a durable
 // flag rather than a hardcoded username check, since usernames can be
 // renamed. Grants exclusive access to user management and the audit log,

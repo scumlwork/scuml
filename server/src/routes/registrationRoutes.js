@@ -14,6 +14,7 @@ import { escapeRegex, omitProtectedFields } from "../utils/sanitizeHelpers.js";
 import { scanBuffer } from "../utils/malwareScan.js";
 import { uploadBufferToCloudinary } from "../utils/cloudinaryUpload.js";
 import { recordAuditEvent } from "../utils/auditLogger.js";
+import { recordRecentActivity, clearRecentActivityForMany } from "../utils/recentActivity.js";
 
 const router = express.Router();
 
@@ -47,6 +48,16 @@ router.post("/", requireAuth, async (req, res) => {
     });
 
     await registration.save();
+
+    await recordRecentActivity({
+      type: "identification",
+      refId: registration._id,
+      companyId: registration._id,
+      companyName: registration.companyName,
+      summary: `New company registered: ${registration.companyName}`,
+      createdBy: username,
+    });
+
     res.status(201).json(registration);
   } catch (err) {
     if (err.code === 11000) {
@@ -184,6 +195,17 @@ router.delete("/:id", requireAuth, async (req, res) => {
       Training.deleteMany({ _id: { $in: reg.trainings } }),
       Violation.deleteMany({ _id: { $in: reg.violations } }),
     ]);
+
+    const allRefIds = [
+      reg._id,
+      ...reg.letters,
+      ...reg.sanctions,
+      ...reg.offSiteInspections,
+      ...reg.onSiteInspections,
+      ...reg.trainings,
+      ...reg.violations,
+    ];
+    await clearRecentActivityForMany(allRefIds);
 
     res.json({ message: "Registration and its records deleted" });
   } catch (err) {

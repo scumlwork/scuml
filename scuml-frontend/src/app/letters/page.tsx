@@ -15,6 +15,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import LetterForm from '@/components/forms/LetterForm';
+import { useAuth } from '@/context/AuthContext';
 
 interface Company {
   _id: string;
@@ -23,11 +24,17 @@ interface Company {
 
 export default function LettersPage() {
   const router = useRouter();
+  const { user } = useAuth();
 
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<Company[]>([]);
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [entryDateTime] = useState(() => new Date());
+
+  // Actions is superadmin-only.
+  useEffect(() => {
+    if (user && user.role !== 'superadmin') router.replace('/');
+  }, [user, router]);
 
   // 🔎 Fetch company suggestions as user types
   useEffect(() => {

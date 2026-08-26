@@ -9,7 +9,7 @@ type User = {
   username: string;
   email?: string;     // (optional, if you store email)
   photoUrl?: string;  // ✅ profile photo
-  role?: 'superadmin' | 'staff';
+  role?: 'superadmin' | 'staff' | 'guest';
   isOwner?: boolean;  // exclusive access to user management + audit log
 };
 

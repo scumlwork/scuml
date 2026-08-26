@@ -1,10 +1,14 @@
 import express from "express";
 import OnSiteInspection from "../models/OnSiteInspection.js";
 import Registration from "../models/Registration.js";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth, requireStaffOrAbove } from "../middleware/auth.js";
 import { omitProtectedFields } from "../utils/sanitizeHelpers.js";
+import { recordRecentActivity, clearRecentActivityFor } from "../utils/recentActivity.js";
 
 const router = express.Router();
+
+// Guest accounts may only act on the Identification section.
+router.use(requireStaffOrAbove);
 
 // 🔹 Create new On-Site Inspection
 router.post("/", requireAuth, async (req, res) => {
@@ -32,6 +36,15 @@ router.post("/", requireAuth, async (req, res) => {
     // Link inspection to Registration
     await Registration.findByIdAndUpdate(company, {
       $push: { onSiteInspections: inspection._id },
+    });
+
+    await recordRecentActivity({
+      type: "onsite",
+      refId: inspection._id,
+      companyId: existingCompany._id,
+      companyName: existingCompany.companyName,
+      summary: `On-Site Inspection for ${existingCompany.companyName}`,
+      createdBy: username,
     });
 
     res.status(201).json(inspection);
@@ -106,6 +119,7 @@ router.delete("/:id", requireAuth, async (req, res) => {
     await Registration.findByIdAndUpdate(inspection.company, {
       $pull: { onSiteInspections: inspection._id },
     });
+    await clearRecentActivityFor(inspection._id);
 
     res.json({ message: "Inspection deleted successfully" });
   } catch (err) {

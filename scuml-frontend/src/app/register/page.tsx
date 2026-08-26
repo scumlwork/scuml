@@ -37,7 +37,7 @@ import { useAuth } from '@/context/AuthContext';
 type ManagedUser = {
   id: string;
   username: string;
-  role: 'superadmin' | 'staff';
+  role: 'superadmin' | 'staff' | 'guest';
   isActive: boolean;
   online: boolean;
   createdAt: string;
@@ -81,7 +81,7 @@ export default function RegisterPage() {
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<'staff' | 'superadmin'>('staff');
+  const [role, setRole] = useState<'staff' | 'superadmin' | 'guest'>('staff');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -432,7 +432,7 @@ export default function RegisterPage() {
             objectFit="cover"
           />
           <Text fontSize="2xl" fontWeight="bold" color="red.500">
-            SCUML Register
+            User Registration
           </Text>
         </HStack>
 
@@ -483,10 +483,11 @@ export default function RegisterPage() {
           <Box flex="1" minW={0}>
             <Select
               value={role}
-              onChange={(e) => setRole(e.target.value as 'staff' | 'superadmin')}
+              onChange={(e) => setRole(e.target.value as 'staff' | 'superadmin' | 'guest')}
             >
               <option value="staff">Staff</option>
               <option value="superadmin">Super Admin</option>
+              <option value="guest">Guest</option>
             </Select>
           </Box>
 
@@ -556,8 +557,12 @@ export default function RegisterPage() {
                       )}
                     </Td>
                     <Td>
-                      <Badge colorScheme={u.role === 'superadmin' ? 'purple' : 'gray'}>
-                        {u.role === 'superadmin' ? 'Super Admin' : 'Staff'}
+                      <Badge
+                        colorScheme={
+                          u.role === 'superadmin' ? 'purple' : u.role === 'guest' ? 'yellow' : 'gray'
+                        }
+                      >
+                        {u.role === 'superadmin' ? 'Super Admin' : u.role === 'guest' ? 'Guest' : 'Staff'}
                       </Badge>
                     </Td>
                     <Td>

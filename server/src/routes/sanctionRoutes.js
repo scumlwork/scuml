@@ -3,13 +3,17 @@ import express from "express";
 import multer from "multer";
 import Sanction from "../models/Sanction.js";
 import Registration from "../models/Registration.js";
-import { requireAuth, requireSuperadmin } from "../middleware/auth.js";
+import { requireAuth, requireSuperadmin, requireStaffOrAbove } from "../middleware/auth.js";
 import { omitProtectedFields } from "../utils/sanitizeHelpers.js";
 import { scanBuffer } from "../utils/malwareScan.js";
 import { uploadBufferToCloudinary } from "../utils/cloudinaryUpload.js";
 import { recordAuditEvent } from "../utils/auditLogger.js";
+import { recordRecentActivity, clearRecentActivityFor } from "../utils/recentActivity.js";
 
 const router = express.Router();
+
+// Guest accounts may only act on the Identification section.
+router.use(requireStaffOrAbove);
 
 // 🔹 Receipt upload (images or PDF) — buffered in memory so it can be
 // malware-scanned before it's forwarded to Cloudinary.
@@ -49,6 +53,15 @@ router.post("/", requireAuth, async (req, res) => {
     // 🔹 Add sanction reference to the registration (atomic update)
     await Registration.findByIdAndUpdate(company, {
       $push: { sanctions: sanction._id },
+    });
+
+    await recordRecentActivity({
+      type: "sanction",
+      refId: sanction._id,
+      companyId: existingCompany._id,
+      companyName: existingCompany.companyName,
+      summary: `Sanction of ₦${amount} for ${existingCompany.companyName}`,
+      createdBy: username,
     });
 
     res.status(201).json(sanction);
@@ -162,6 +175,7 @@ router.delete("/:id", requireAuth, async (req, res) => {
     await Registration.findByIdAndUpdate(sanction.company, {
       $pull: { sanctions: sanction._id },
     });
+    await clearRecentActivityFor(sanction._id);
 
     res.json({ message: "Sanction deleted successfully" });
   } catch (err) {

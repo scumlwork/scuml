@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Box, Input } from "@chakra-ui/react";
 import TrainingForm from "@/components/forms/TrainingForm";
+import { useAuth } from "@/context/AuthContext";
 
 type Company = {
   _id: string;
@@ -14,6 +15,12 @@ export default function TrainingPage() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const router = useRouter();
+  const { user } = useAuth();
+
+  // Guest accounts may only act on the Identification section.
+  useEffect(() => {
+    if (user && user.role === "guest") router.replace("/");
+  }, [user, router]);
 
   // --- Live Search Companies ---
   useEffect(() => {

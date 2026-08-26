@@ -2,10 +2,14 @@
 import express from "express";
 import Violation from "../models/Violation.js";
 import Registration from "../models/Registration.js";
-import { requireAuth, requireSuperadmin } from "../middleware/auth.js";
+import { requireAuth, requireSuperadmin, requireStaffOrAbove } from "../middleware/auth.js";
 import { escapeRegex, omitProtectedFields } from "../utils/sanitizeHelpers.js";
+import { recordRecentActivity, clearRecentActivityFor } from "../utils/recentActivity.js";
 
 const router = express.Router();
+
+// Guest accounts may only act on the Identification section.
+router.use(requireStaffOrAbove);
 
 // 🔹 Create new violation
 router.post("/", requireAuth, async (req, res) => {
@@ -36,6 +40,15 @@ router.post("/", requireAuth, async (req, res) => {
     // 🔹 Add violation reference to the registration (atomic update)
     await Registration.findByIdAndUpdate(company, {
       $push: { violations: violation._id },
+    });
+
+    await recordRecentActivity({
+      type: "violation",
+      refId: violation._id,
+      companyId: existingCompany._id,
+      companyName: existingCompany.companyName,
+      summary: `Violation of ₦${amountSanctioned} for ${existingCompany.companyName}`,
+      createdBy: username,
     });
 
     res.status(201).json(violation);
@@ -186,6 +199,7 @@ router.delete("/:id", requireAuth, async (req, res) => {
     await Registration.findByIdAndUpdate(violation.company, {
       $pull: { violations: violation._id },
     });
+    await clearRecentActivityFor(violation._id);
 
     res.json({ message: "Violation deleted successfully" });
   } catch (err) {

@@ -8,8 +8,13 @@ import { escapeRegex, omitProtectedFields } from "../utils/sanitizeHelpers.js";
 import { scanBuffer } from "../utils/malwareScan.js";
 import { uploadBufferToCloudinary } from "../utils/cloudinaryUpload.js";
 import { recordAuditEvent } from "../utils/auditLogger.js";
+import { recordRecentActivity, clearRecentActivityFor } from "../utils/recentActivity.js";
 
 const router = express.Router();
+
+// Actions (Letters) is superadmin-only — not visible or usable by staff or
+// guest accounts.
+router.use(requireSuperadmin);
 
 // 🔹 Optional photo gallery — buffered in memory so each file can be
 // malware-scanned before it's stored.
@@ -81,6 +86,15 @@ router.post("/", requireAuth, async (req, res) => {
       $push: { letters: newLetter._id },
     });
 
+    await recordRecentActivity({
+      type: "action",
+      refId: newLetter._id,
+      companyId: company._id,
+      companyName: company.companyName,
+      summary: `${typeOfLetter} for ${company.companyName}`,
+      createdBy: username,
+    });
+
     res.status(201).json(newLetter);
   } catch (err) {
     console.error("Error saving letter:", err);
@@ -145,6 +159,23 @@ router.get("/search", requireAuth, async (req, res) => {
   }
 });
 
+// 🔹 Get single letter
+router.get("/:id", requireAuth, async (req, res) => {
+  try {
+    const letter = await Letter.findById(req.params.id).populate(
+      "company",
+      "companyName natureOfBusiness"
+    );
+
+    if (!letter) return res.status(404).json({ error: "Letter not found" });
+
+    res.json(letter);
+  } catch (err) {
+    console.error("❌ Error fetching letter:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 // 🔹 Edit letter by ID
 router.put("/:id", requireAuth, async (req, res) => {
   try {
@@ -191,6 +222,7 @@ router.delete("/:id", requireAuth, async (req, res) => {
     await Registration.findByIdAndUpdate(letter.company, {
       $pull: { letters: letter._id },
     });
+    await clearRecentActivityFor(letter._id);
 
     res.json({ message: "Letter deleted successfully" });
   } catch (err) {

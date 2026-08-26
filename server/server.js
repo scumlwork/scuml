@@ -29,6 +29,7 @@ import trainingRoutes from "./src/routes/trainingRoutes.js";                 // 
 import violationRoutes from "./src/routes/violationRoutes.js";
 import userManagementRoutes from "./src/routes/userManagement.js";
 import auditLogRoutes from "./src/routes/auditLogRoutes.js";
+import recentActivityRoutes from "./src/routes/recentActivityRoutes.js";
 import sanitizeInput from "./src/middleware/sanitize.js";
 
 
@@ -207,6 +208,7 @@ app.use("/api/trainings", userSession, trainingRoutes);                   // ✅
 app.use("/api/violations", userSession, violationRoutes);
 app.use("/api/users", userSession, userManagementRoutes);
 app.use("/api/audit-log", userSession, auditLogRoutes);
+app.use("/api/recent-activity", userSession, recentActivityRoutes);
 
 // ✅ Admin routes now gated by superadmin role (userSession) since TOTP is disabled
 app.use("/api/admin", userSession, adminRoutes);

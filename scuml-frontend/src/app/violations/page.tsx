@@ -13,6 +13,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import ViolationForm from '@/components/forms/ViolationForm';
+import { useAuth } from '@/context/AuthContext';
 
 type Company = {
   _id: string;
@@ -32,6 +33,12 @@ export default function ViolationsPage() {
   const [query, setQuery] = useState('');
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const router = useRouter();
+  const { user } = useAuth();
+
+  // Guest accounts may only act on the Identification section.
+  useEffect(() => {
+    if (user && user.role === 'guest') router.replace('/');
+  }, [user, router]);
 
   // 🔹 Handle company search — includes each company's existing open violation, if any
   useEffect(() => {

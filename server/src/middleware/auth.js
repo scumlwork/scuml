@@ -24,3 +24,12 @@ export function requireOwner(req, res, next) {
 if (req.session?.user?.role === 'superadmin' && req.session?.user?.isOwner) return next();
 return res.status(403).json({ error: 'Owner access required' });
 }
+
+// Guest accounts may only view and act on the Identification (Registration)
+// section — every other section (Actions, Sanction, Violations, Training,
+// On-Site/Off-Site Inspection) requires at least a staff account.
+export function requireStaffOrAbove(req, res, next) {
+const role = req.session?.user?.role;
+if (role === 'staff' || role === 'superadmin') return next();
+return res.status(403).json({ error: 'Staff or admin access required' });
+}
