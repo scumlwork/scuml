@@ -725,8 +725,8 @@ function GeneratedLetter({
           'Below you will find an attached formal Invitation letter. Please.'
         : isWarning
         ? 'The Special Control Unit against Money Laundering (SCUML) of The Economic and Financial Crimes Commission, Benin Zonal Directorate, has observed that you failed to respond to earlier invitation letters send to your company.\n\n' +
-          'Please note the unit would be taken a necessarily and legal steps to enforce the provisions of the relevant Anti- Money Laundering Laws and Regulations if you fail to comply on this invitation which may Includes Administrative Fines, Closure Of Business Premises, Recommendations for Withdrawal/ Cancellation of Business Registration/ License and Possible Prosecution Directors.\n\n' +
-          'Below you will find attached of a formal Invitation letter for your kind response and provide the required documentation in soft copy in a flash drive'
+          'Please note  that failure to comply may attract Administrative Fines and Possible Prosecution Directors among other things.\n\n' +
+          'Find attached a formal Invitation letter for your kind response and provide the required documentation in soft copy in a flash drive'
         : `Please find attached the ${letterType} for ${company.companyName}.`;
 
       const formData = new FormData();
