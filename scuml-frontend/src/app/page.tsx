@@ -391,6 +391,11 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
       setAddRecordType(null);
       onModalOpen();
     }
+    // Strip ?company= from the URL right after using it — otherwise it sits
+    // in browser history permanently, and pressing the browser/phone back
+    // button from *any* later page eventually lands back on this exact URL
+    // and silently reopens this same company's modal again.
+    router.replace('/', { scroll: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [registrations]);
 

@@ -508,6 +508,11 @@ const [editType, setEditType] = useState<
     const companyId = searchParams.get("company");
     if (companyId) {
       handleSelectCompany(companyId);
+      // Strip ?company= from the URL right after using it — otherwise it
+      // sits in browser history permanently, and pressing the browser/phone
+      // back button from *any* later page eventually lands back on this
+      // exact URL and silently reopens this same company's record again.
+      router.replace('/database', { scroll: false });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [registrations]);
