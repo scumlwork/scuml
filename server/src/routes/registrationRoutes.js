@@ -14,6 +14,7 @@ import { escapeRegex, omitProtectedFields } from "../utils/sanitizeHelpers.js";
 import { scanBuffer } from "../utils/malwareScan.js";
 import { uploadBufferToCloudinary } from "../utils/cloudinaryUpload.js";
 import { recordAuditEvent } from "../utils/auditLogger.js";
+import GeneratedLetter from "../models/GeneratedLetter.js";
 import { recordRecentActivity, clearRecentActivityForMany } from "../utils/recentActivity.js";
 
 const router = express.Router();
@@ -119,6 +120,7 @@ router.get("/", requireAuth, async (req, res) => {
       .populate("onSiteInspections") // ✅ new
       .populate("trainings")         // ✅ new
       .populate("violations")
+      .populate("generatedLetters")
       .sort({ createdAt: -1 });
 
     res.json(regs);
@@ -154,7 +156,8 @@ router.get("/:id", requireAuth, async (req, res) => {
       .populate("offSiteInspections")
       .populate("onSiteInspections") // ✅ new
       .populate("trainings")         // ✅ new
-      .populate("violations");
+      .populate("violations")
+      .populate("generatedLetters");
 
     if (!reg) return res.status(404).json({ error: "Not found" });
     res.json(reg);
@@ -194,6 +197,7 @@ router.delete("/:id", requireAuth, async (req, res) => {
       OnSiteInspection.deleteMany({ _id: { $in: reg.onSiteInspections } }),
       Training.deleteMany({ _id: { $in: reg.trainings } }),
       Violation.deleteMany({ _id: { $in: reg.violations } }),
+      GeneratedLetter.deleteMany({ _id: { $in: reg.generatedLetters } }),
     ]);
 
     const allRefIds = [
@@ -204,6 +208,7 @@ router.delete("/:id", requireAuth, async (req, res) => {
       ...reg.onSiteInspections,
       ...reg.trainings,
       ...reg.violations,
+      ...reg.generatedLetters,
     ];
     await clearRecentActivityForMany(allRefIds);
 
@@ -225,10 +230,11 @@ router.delete("/clear-all", requireSuperadmin, async (req, res) => {
     await OnSiteInspection.deleteMany({}); // ✅ clear on-site
     await Training.deleteMany({});         // ✅ clear trainings
     await Violation.deleteMany({});        // ✅ clear violations
+    await GeneratedLetter.deleteMany({});
 
     res.json({
       message:
-        "All registrations, letters, sanctions, off-site inspections, on-site inspections, trainings, and violations cleared",
+        "All registrations, letters, sanctions, off-site inspections, on-site inspections, trainings, violations, and generated letters cleared",
     });
   } catch (err) {
     console.error("❌ Error clearing all:", err.message);

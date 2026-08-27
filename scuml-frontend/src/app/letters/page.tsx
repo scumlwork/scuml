@@ -10,6 +10,8 @@ import {
   Container,
   Card,
   CardBody,
+  Button,
+  HStack,
 } from '@chakra-ui/react';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -72,10 +74,16 @@ export default function LettersPage() {
             Actions
           </Heading>
 
-          <Text fontSize="sm" color="gray.500" textAlign="center" mb={6}>
+          <Text fontSize="sm" color="gray.500" textAlign="center" mb={4}>
             Entry Date & Time: {entryDateTime.toLocaleDateString()}{' '}
             {entryDateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </Text>
+
+          <HStack justify="center" mb={6}>
+            <Button colorScheme="red" variant="outline" onClick={() => router.push('/letters/initiate')}>
+              Initiate Letters
+            </Button>
+          </HStack>
 
           {/* 🔎 Search field */}
           <Box mb={6}>

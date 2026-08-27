@@ -31,15 +31,15 @@ export interface CompanyFormProps {
 }
 
 const ACTIVITY_OPTIONS = [
-  'Invitation',
-  'Inspection',
-  'Training',
-  'Warning',
-  'Sanction',
-  'Visitation',
-  'Reminder',
-  'Follow Up',
-  'Appointment/Next Appointment',
+  'Invitation Schedule',
+  'Inspection Schedule',
+  'Training Schedule',
+  'Warning Schedule',
+  'Sanction Schedule',
+  'Visitation Schedule',
+  'Reminder Schedule',
+  'Follow Up Schedule',
+  'Appointment/Next Appointment Schedule',
 ];
 
 const today = new Date().toISOString().split('T')[0];
@@ -105,15 +105,6 @@ export default function LetterForm({ companyName, onSuccess }: CompanyFormProps)
     e.preventDefault();
 
     const validContacts = contacts.filter((c) => c.name.trim() && c.phone.trim());
-    if (validContacts.length === 0) {
-      toast({
-        title: 'At least one contact person (name and phone) is required.',
-        status: 'warning',
-        duration: 4000,
-        isClosable: true,
-      });
-      return;
-    }
 
     setSubmitting(true);
 
@@ -147,7 +138,11 @@ export default function LetterForm({ companyName, onSuccess }: CompanyFormProps)
       }
 
       if (calendarWindow) {
-        calendarWindow.location.href = buildGoogleCalendarUrl(companyName, dateOfReporting, remark);
+        if (dateOfReporting) {
+          calendarWindow.location.href = buildGoogleCalendarUrl(companyName, dateOfReporting, remark);
+        } else {
+          calendarWindow.close();
+        }
       }
 
       toast({
@@ -181,7 +176,7 @@ export default function LetterForm({ companyName, onSuccess }: CompanyFormProps)
           <Input value={companyName} isReadOnly cursor="not-allowed" bg="gray.100" />
         </FormControl>
 
-        <FormControl isRequired>
+        <FormControl>
           <FormLabel>Activities</FormLabel>
           <Select
             value={activity}
@@ -208,7 +203,7 @@ export default function LetterForm({ companyName, onSuccess }: CompanyFormProps)
                   )}
                 </HStack>
                 <VStack spacing={2} align="stretch">
-                  <FormControl isRequired>
+                  <FormControl>
                     <FormLabel fontSize="sm">Name</FormLabel>
                     <Input
                       value={contact.name}
@@ -216,13 +211,13 @@ export default function LetterForm({ companyName, onSuccess }: CompanyFormProps)
                     />
                   </FormControl>
                   <FormControl>
-                    <FormLabel fontSize="sm">Position (optional)</FormLabel>
+                    <FormLabel fontSize="sm">Position</FormLabel>
                     <Input
                       value={contact.position}
                       onChange={(e) => updateContact(index, 'position', e.target.value)}
                     />
                   </FormControl>
-                  <FormControl isRequired>
+                  <FormControl>
                     <FormLabel fontSize="sm">Phone</FormLabel>
                     <Input
                       value={contact.phone}
@@ -230,7 +225,7 @@ export default function LetterForm({ companyName, onSuccess }: CompanyFormProps)
                     />
                   </FormControl>
                   <FormControl>
-                    <FormLabel fontSize="sm">Email (optional)</FormLabel>
+                    <FormLabel fontSize="sm">Email</FormLabel>
                     <Input
                       type="email"
                       value={contact.email}
@@ -247,7 +242,7 @@ export default function LetterForm({ companyName, onSuccess }: CompanyFormProps)
         </Box>
 
         <FormControl>
-          <FormLabel>Appointment Remark (optional)</FormLabel>
+          <FormLabel>Appointment Remark</FormLabel>
           <Textarea
             value={remark}
             onChange={(e) => setRemark(e.target.value)}
@@ -255,7 +250,7 @@ export default function LetterForm({ companyName, onSuccess }: CompanyFormProps)
           />
         </FormControl>
 
-        <FormControl isRequired>
+        <FormControl>
           <FormLabel>Appointment Date</FormLabel>
           <Input
             type="date"

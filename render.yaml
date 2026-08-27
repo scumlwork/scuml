@@ -26,6 +26,19 @@ services:
         sync: false
       - key: CLOUDINARY_API_SECRET
         sync: false
+      # Shared secret for the external monthly cleanup ping (deletes
+      # generated-letter PDFs older than 30 days from Cloudinary) — see
+      # /api/maintenance/cleanup-generated-letters. Set the same value here
+      # and in the cron service's request header.
+      - key: CLEANUP_SECRET
+        sync: false
+      # Sends generated letters as real email attachments (see
+      # /api/letters/send-letter-email). EMAIL_USER is the Gmail address;
+      # EMAIL_PASS is a Google App Password for it, not its login password.
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_PASS
+        sync: false
       # Optional — only needed once ClamAV is actually stood up (see the
       # "Ship without scanning" decision made for this deploy). Leave unset
       # and uploads simply go unscanned, same as local dev.

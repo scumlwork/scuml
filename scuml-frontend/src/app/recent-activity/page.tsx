@@ -28,7 +28,7 @@ import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { useAuth } from '@/context/AuthContext';
 
-type ActivityType = 'identification' | 'action' | 'sanction' | 'violation' | 'training' | 'onsite' | 'offsite';
+type ActivityType = 'identification' | 'action' | 'sanction' | 'violation' | 'training' | 'onsite' | 'offsite' | 'generatedLetter';
 
 type Activity = {
   _id: string;
@@ -49,6 +49,7 @@ const TYPE_LABELS: Record<ActivityType, string> = {
   training: 'Training',
   onsite: 'On-Site Inspection',
   offsite: 'Off-Site Inspection',
+  generatedLetter: 'Initiated Letter',
 };
 
 const TYPE_COLORS: Record<ActivityType, string> = {
@@ -59,6 +60,7 @@ const TYPE_COLORS: Record<ActivityType, string> = {
   training: 'teal',
   onsite: 'purple',
   offsite: 'pink',
+  generatedLetter: 'yellow',
 };
 
 // Each type's own single-record API path, used both to fetch details for
@@ -71,6 +73,7 @@ const API_PATH: Record<ActivityType, string> = {
   training: 'trainings',
   onsite: 'on-site-inspections',
   offsite: 'offsite-inspections',
+  generatedLetter: 'generated-letters',
 };
 
 const DATE_KEYS = new Set(['createdAt', 'updatedAt', 'dateOfReporting']);

@@ -38,7 +38,7 @@ import {
 
 import { HamburgerIcon, ChevronLeftIcon, ChevronRightIcon } from '@chakra-ui/icons';
 import { useAuth } from '@/context/AuthContext';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState, ReactNode } from 'react';
 import axios from 'axios';
 import LetterForm from '@/components/forms/LetterForm';
@@ -68,6 +68,16 @@ type Letter = {
   remark?: string;
   photos?: string[];
   dateOfReporting: string;
+};
+
+type GeneratedLetterRecord = {
+  _id: string;
+  letterType: string;
+  title: string;
+  reportingDate: string;
+  refNumber: string;
+  generatedBy: string;
+  createdAt: string;
 };
 
 type Sanction = {
@@ -217,6 +227,7 @@ type Registration = {
   offSiteInspections?: OffSiteInspection[]; // ✅ add this
   trainings?: Training[];
   violations?: Violation[];
+  generatedLetters?: GeneratedLetterRecord[];
 };
 
 // Label on the left, value on the right — long values wrap within their own
@@ -365,6 +376,23 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
     onOpen: onModalOpen,
     onClose: onModalClose,
   } = useDisclosure();
+
+  // 🔹 Deep-link support — Initiate Letters' back button (and anywhere else
+  // that needs to return straight into a company's Compliance Record) links
+  // here with ?company=<id> to reopen that company's modal automatically.
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    if (registrations.length === 0) return;
+    const companyId = searchParams.get('company');
+    if (!companyId) return;
+    const reg = registrations.find((r) => r._id === companyId);
+    if (reg) {
+      setSelectedRegistration(reg);
+      setAddRecordType(null);
+      onModalOpen();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [registrations]);
 
   // 🔹 Super admin: select + permanently delete registrations (cascades everywhere)
   const toast = useToast();
@@ -641,16 +669,16 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
   boxSizing="border-box"
 >
   {[
-    { label: "Identification", path: "registration", superadminOnly: false, ownerOnly: false, guestVisible: true }, // ✅ links to /registration
-    { label: "Actions", path: "letters", superadminOnly: true, ownerOnly: false, guestVisible: false },
-    { label: "On-Site Inspection", path: "on-site-inspection", superadminOnly: false, ownerOnly: false, guestVisible: false },
-    { label: "Off-Site Inspection", path: "off-site-inspection", superadminOnly: false, ownerOnly: false, guestVisible: false },
-    { label: "Sanction Registration", path: "sanction", superadminOnly: false, ownerOnly: false, guestVisible: false },
-    { label: "Violations", path: "violations", superadminOnly: true, ownerOnly: false, guestVisible: false },
-    { label: "Training", path: "training", superadminOnly: true, ownerOnly: false, guestVisible: false },
     { label: "Admin", path: "database", superadminOnly: true, ownerOnly: false, guestVisible: false },      // ✅ links to /database
-    { label: "User", path: "register", superadminOnly: true, ownerOnly: false, guestVisible: false },
     { label: "Audit Log", path: "audit-log", superadminOnly: true, ownerOnly: true, guestVisible: false },
+    { label: "Identification", path: "registration", superadminOnly: false, ownerOnly: false, guestVisible: true }, // ✅ links to /registration
+    { label: "Off-Site Inspection", path: "off-site-inspection", superadminOnly: false, ownerOnly: false, guestVisible: false },
+    { label: "On-Site Inspection", path: "on-site-inspection", superadminOnly: false, ownerOnly: false, guestVisible: false },
+    { label: "Violations", path: "violations", superadminOnly: true, ownerOnly: false, guestVisible: false },
+    { label: "Sanctions Registration", path: "sanction", superadminOnly: false, ownerOnly: false, guestVisible: false },
+    { label: "Training Records", path: "training", superadminOnly: true, ownerOnly: false, guestVisible: false },
+    { label: "Actions", path: "letters", superadminOnly: true, ownerOnly: false, guestVisible: false },
+    { label: "User", path: "register", superadminOnly: true, ownerOnly: false, guestVisible: false },
   ]
     .filter((item) => !item.superadminOnly || user.role === "superadmin")
     .filter((item) => !item.ownerOnly || user.isOwner)
@@ -1031,6 +1059,39 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
                     </Box>
                   )}
 
+                  {/* Initiated Letters — generated via the Initiate Letters
+                      page (Letter of Invitation / Warning Letter); visible
+                      to staff same as every other history section, only a
+                      superadmin can generate more */}
+                  {user.role !== 'guest' && selectedRegistration.generatedLetters && selectedRegistration.generatedLetters.length > 0 && (
+                    <Box mt={4}>
+                      <HStack justify="space-between" mb={2}>
+                        <Text fontSize="lg" fontWeight="bold" color="blue.600">
+                          Initiated Letters
+                        </Text>
+                        {user.role === 'superadmin' && (
+                          <Button
+                            size="xs"
+                            colorScheme="blue"
+                            variant="outline"
+                            onClick={() => router.push(`/letters/initiate?company=${selectedRegistration._id}`)}
+                          >
+                            + Initiate Letters
+                          </Button>
+                        )}
+                      </HStack>
+                      {selectedRegistration.generatedLetters.map((gl) => (
+                        <Box key={gl._id} p={2} borderWidth="1px" borderRadius="md" mb={2}>
+                          <Text><b>Type:</b> {gl.letterType}</Text>
+                          <Text><b>Title:</b> {gl.title}</Text>
+                          <Text><b>Reporting Date:</b> {gl.reportingDate}</Text>
+                          <Text><b>Generated By:</b> {gl.generatedBy || 'N/A'}</Text>
+                          <Text><b>Generated On:</b> {new Date(gl.createdAt).toLocaleString()}</Text>
+                        </Box>
+                      ))}
+                    </Box>
+                  )}
+
                  {/* Sanctions */}
 {user.role !== 'guest' && selectedRegistration.sanctions && selectedRegistration.sanctions.length > 0 && (
   <Box mt={4}>
@@ -1326,17 +1387,17 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
   </Text>
   {!addRecordType && (
     <HStack spacing={2} flexWrap="wrap">
-      {user.role === 'superadmin' && (
-        <Button size="sm" colorScheme="blue" onClick={() => setAddRecordType('letter')}>Actions</Button>
-      )}
-      <Button size="sm" colorScheme="green" onClick={() => setAddRecordType('onsite')}>On-Site Inspection</Button>
       <Button size="sm" colorScheme="purple" onClick={() => setAddRecordType('offsite')}>Off-Site Inspection</Button>
-      <Button size="sm" colorScheme="orange" onClick={() => setAddRecordType('sanction')}>Sanction Registration</Button>
+      <Button size="sm" colorScheme="green" onClick={() => setAddRecordType('onsite')}>On-Site Inspection</Button>
       {user.role === 'superadmin' && (
         <Button size="sm" colorScheme="red" onClick={() => setAddRecordType('violation')}>Violations</Button>
       )}
+      <Button size="sm" colorScheme="orange" onClick={() => setAddRecordType('sanction')}>Sanctions Registration</Button>
       {user.role === 'superadmin' && (
-        <Button size="sm" colorScheme="teal" onClick={() => setAddRecordType('training')}>Training</Button>
+        <Button size="sm" colorScheme="teal" onClick={() => setAddRecordType('training')}>Training Records</Button>
+      )}
+      {user.role === 'superadmin' && (
+        <Button size="sm" colorScheme="blue" onClick={() => setAddRecordType('letter')}>Actions</Button>
       )}
     </HStack>
   )}
@@ -1352,7 +1413,19 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
           {addRecordType === 'onsite' && 'Add On-Site Inspection'}
           {addRecordType === 'offsite' && 'Add Off-Site Inspection'}
         </Text>
-        <Button size="xs" variant="ghost" onClick={() => setAddRecordType(null)}>Cancel</Button>
+        <HStack spacing={2}>
+          {addRecordType === 'letter' && (
+            <Button
+              size="xs"
+              colorScheme="blue"
+              variant="outline"
+              onClick={() => router.push(`/letters/initiate?company=${selectedRegistration._id}`)}
+            >
+              Initiate Letters
+            </Button>
+          )}
+          <Button size="xs" variant="ghost" onClick={() => setAddRecordType(null)}>Cancel</Button>
+        </HStack>
       </HStack>
 
       {addRecordType === 'letter' && (

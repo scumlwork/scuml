@@ -9,6 +9,7 @@ import { scanBuffer } from "../utils/malwareScan.js";
 import { uploadBufferToCloudinary } from "../utils/cloudinaryUpload.js";
 import { recordAuditEvent } from "../utils/auditLogger.js";
 import { recordRecentActivity, clearRecentActivityFor } from "../utils/recentActivity.js";
+import { sendMail } from "../config/mailer.js";
 
 const router = express.Router();
 
@@ -24,6 +25,92 @@ const uploadPhotos = multer({
   fileFilter: (req, file, cb) => {
     cb(null, ["image/jpeg", "image/png"].includes(file.mimetype));
   },
+});
+
+// 🔹 A generated letter PDF, on its way to being shared — buffered so it can
+// be scanned before it's hosted.
+const uploadLetterPdf = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 25 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    cb(null, file.mimetype === "application/pdf");
+  },
+});
+
+// 🔹 Host a generated letter PDF on Cloudinary so it can be shared as a real
+// document link (via WhatsApp/Gmail) instead of just plain text.
+router.post("/upload-letter-pdf", requireAuth, uploadLetterPdf.single("pdf"), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+
+    const result = await scanBuffer(req.file.buffer, req.file.originalname);
+    if (result.infected) {
+      recordAuditEvent(req, "malware_blocked", req.session.user.username);
+      return res.status(400).json({
+        error: `Upload rejected: malware detected (${result.viruses.join(", ") || "unknown"})`,
+      });
+    }
+
+    // Cloudinary blocks public delivery of "raw" PDFs by default (security
+    // setting, returns 401) — uploading as "image" instead is the standard
+    // workaround and still serves a real, downloadable PDF at the URL.
+    const uploaded = await uploadBufferToCloudinary(req.file.buffer, {
+      folder: "scuml-generated-letters",
+      resource_type: "image",
+      public_id: req.file.originalname.replace(/\.pdf$/i, ""),
+      format: "pdf",
+    });
+
+    res.json({ url: uploaded.secure_url });
+  } catch (err) {
+    console.error("❌ Error uploading letter PDF:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// 🔹 Send a generated letter directly by email, PDF attached for real —
+// unlike the Gmail compose deep link, this actually sends the mail, so the
+// recipient's address is taken from the company's own registration record
+// (never trusted from the client) to avoid this becoming an open relay.
+router.post("/send-letter-email", requireAuth, uploadLetterPdf.single("pdf"), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+
+    const { companyId, subject, text } = req.body;
+    if (!companyId) return res.status(400).json({ error: "companyId is required" });
+
+    const company = await Registration.findById(companyId).select("companyName email").lean();
+    if (!company) return res.status(404).json({ error: "Company not found" });
+    if (!company.email) {
+      return res.status(400).json({ error: "No email on file for this company" });
+    }
+
+    const result = await scanBuffer(req.file.buffer, req.file.originalname);
+    if (result.infected) {
+      recordAuditEvent(req, "malware_blocked", req.session.user.username);
+      return res.status(400).json({
+        error: `Upload rejected: malware detected (${result.viruses.join(", ") || "unknown"})`,
+      });
+    }
+
+    await sendMail({
+      to: company.email,
+      subject: subject || `Letter for ${company.companyName}`,
+      text: text || `Please find attached the letter for ${company.companyName}.`,
+      attachments: [
+        {
+          filename: req.file.originalname,
+          content: req.file.buffer,
+          contentType: "application/pdf",
+        },
+      ],
+    });
+
+    res.json({ success: true, sentTo: company.email });
+  } catch (err) {
+    console.error("❌ Error sending letter email:", err);
+    res.status(500).json({ error: "Failed to send email" });
+  }
 });
 
 // 🔹 Add a new letter to a company
@@ -51,9 +138,6 @@ router.post("/", requireAuth, async (req, res) => {
           }))
           .filter((c) => c.name && c.phone)
       : [];
-    if (cleanContacts.length === 0) {
-      return res.status(400).json({ error: "At least one contact person (name and phone) is required." });
-    }
 
     // Find company by name
     const company = await Registration.findOne({ companyName }).lean();
@@ -70,9 +154,9 @@ router.post("/", requireAuth, async (req, res) => {
       company: company._id,
       typeOfLetter,
       contacts: cleanContacts,
-      receiverName: cleanContacts[0].name,
-      phone: cleanContacts[0].phone,
-      email: cleanContacts[0].email,
+      receiverName: cleanContacts[0]?.name || "",
+      phone: cleanContacts[0]?.phone || "",
+      email: cleanContacts[0]?.email || "",
       remark,
       dateOfReporting,
       tag: `Letter ${letterNumber}`,
@@ -91,7 +175,7 @@ router.post("/", requireAuth, async (req, res) => {
       refId: newLetter._id,
       companyId: company._id,
       companyName: company.companyName,
-      summary: `${typeOfLetter} for ${company.companyName}`,
+      summary: `${typeOfLetter || "Action"} for ${company.companyName}`,
       createdBy: username,
     });
 

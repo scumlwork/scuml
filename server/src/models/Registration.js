@@ -43,6 +43,9 @@ const RegistrationSchema = new mongoose.Schema(
     ],
     trainings: [{ type: mongoose.Schema.Types.ObjectId, ref: "Training" }],
     violations: [{ type: mongoose.Schema.Types.ObjectId, ref: "Violation" }],
+    generatedLetters: [
+      { type: mongoose.Schema.Types.ObjectId, ref: "GeneratedLetter" },
+    ],
   },
   { timestamps: true }
 );

@@ -30,6 +30,8 @@ import violationRoutes from "./src/routes/violationRoutes.js";
 import userManagementRoutes from "./src/routes/userManagement.js";
 import auditLogRoutes from "./src/routes/auditLogRoutes.js";
 import recentActivityRoutes from "./src/routes/recentActivityRoutes.js";
+import generatedLetterRoutes from "./src/routes/generatedLetterRoutes.js";
+import maintenanceRoutes from "./src/routes/maintenanceRoutes.js";
 import sanitizeInput from "./src/middleware/sanitize.js";
 
 
@@ -209,6 +211,7 @@ app.use("/api/violations", userSession, violationRoutes);
 app.use("/api/users", userSession, userManagementRoutes);
 app.use("/api/audit-log", userSession, auditLogRoutes);
 app.use("/api/recent-activity", userSession, recentActivityRoutes);
+app.use("/api/generated-letters", userSession, generatedLetterRoutes);
 
 // ✅ Admin routes now gated by superadmin role (userSession) since TOTP is disabled
 app.use("/api/admin", userSession, adminRoutes);
@@ -226,6 +229,10 @@ app.use("/api/admin", userSession, adminRoutes);
 
 // Health check
 app.get("/api/health", (_req, res) => res.json({ ok: true, ts: Date.now() }));
+
+// ✅ Maintenance endpoints — no user session, authenticated by a shared
+// secret header instead (triggered by an external scheduler).
+app.use("/api/maintenance", maintenanceRoutes);
 
 
 
