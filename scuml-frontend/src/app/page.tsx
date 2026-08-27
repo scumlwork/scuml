@@ -234,11 +234,11 @@ type Registration = {
 // column instead of dropping below the label.
 function InspectionField({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <Flex mb={1.5} gap={2} align="flex-start">
-      <Text fontWeight="bold" minW="170px" flexShrink={0}>
+    <Flex mb={1.5} gap={{ base: 0, sm: 2 }} align={{ base: 'flex-start', sm: 'flex-start' }} direction={{ base: 'column', sm: 'row' }}>
+      <Text fontWeight="bold" minW={{ base: 'auto', sm: '170px' }} flexShrink={0}>
         {label}:
       </Text>
-      <Text whiteSpace="pre-wrap" flex="1">
+      <Text whiteSpace="pre-wrap" flex="1" wordBreak="break-word">
         {value}
       </Text>
     </Flex>
