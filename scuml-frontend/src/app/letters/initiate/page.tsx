@@ -415,7 +415,7 @@ function LetterPage({ children, last }: { children: React.ReactNode; last?: bool
       bg="white"
       shadow="lg"
       mb={last ? 0 : 8}
-      p="20mm"
+      p={{ base: 4, sm: 6, md: "20mm" }}
       minH="1123px"
       display="flex"
       flexDirection="column"
@@ -781,7 +781,7 @@ function GeneratedLetter({
         <Button size="sm" colorScheme="red" onClick={() => window.print()}>Print</Button>
       </HStack>
 
-      <Box className="print-area" maxW="794px" mx="auto">
+      <Box className="print-area" maxW="794px" mx="auto" px={{ base: 3, md: 0 }}>
         <LetterPage>
           <LetterHeader refNumber={refNumber} todayStr={todayStr} title={title} company={company} />
           {isWarning ? (
