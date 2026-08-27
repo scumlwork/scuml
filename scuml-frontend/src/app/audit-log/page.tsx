@@ -43,6 +43,7 @@ type AuditEntry = {
   ip: string;
   location: string;
   userAgent: string;
+  deviceType: string;
   createdAt: string;
 };
 
@@ -260,6 +261,7 @@ export default function AuditLogPage() {
                   <Th><Checkbox isChecked={allSelected} onChange={toggleAll} /></Th>
                   <Th>Event</Th>
                   <Th>Username</Th>
+                  <Th>Device</Th>
                   <Th>IP Address</Th>
                   <Th>Location</Th>
                   <Th>Date &amp; Time</Th>
@@ -280,6 +282,7 @@ export default function AuditLogPage() {
                       </Badge>
                     </Td>
                     <Td>{log.username || 'N/A'}</Td>
+                    <Td>{log.deviceType || 'N/A'}</Td>
                     <Td>{log.ip || 'N/A'}</Td>
                     <Td>{log.location || 'N/A'}</Td>
                     <Td whiteSpace="nowrap">{new Date(log.createdAt).toLocaleString()}</Td>

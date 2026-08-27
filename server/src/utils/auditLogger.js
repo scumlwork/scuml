@@ -30,15 +30,30 @@ function locationFor(ip) {
   return parts.length > 0 ? parts.join(", ") : "Unknown";
 }
 
+// Coarse device classification from the User-Agent string — good enough to
+// answer "was this a phone or a laptop", not meant as precise device/OS
+// detection. Checked in this order since a modern iPad's UA can otherwise
+// look identical to a Mac's, and Android tablet UAs omit "Mobile" while
+// Android phone UAs include it.
+export function deviceTypeFor(userAgent) {
+  const ua = userAgent || "";
+  if (!ua) return "Unknown";
+  if (/iPad/i.test(ua) || (/Android/i.test(ua) && !/Mobile/i.test(ua))) return "Tablet";
+  if (/Mobi|iPhone|iPod|Android|Windows Phone/i.test(ua)) return "Phone";
+  return "Laptop/Desktop";
+}
+
 // Fire-and-forget — an audit write should never block or fail the request
 // it's describing.
 export function recordAuditEvent(req, eventType, username = "") {
   const ip = clientIp(req);
+  const userAgent = req.headers["user-agent"] || "";
   AuditLog.create({
     eventType,
     username,
     ip,
     location: locationFor(ip),
-    userAgent: req.headers["user-agent"] || "",
+    userAgent,
+    deviceType: deviceTypeFor(userAgent),
   }).catch((err) => console.error("❌ Failed to write audit log entry:", err));
 }

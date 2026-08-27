@@ -3,6 +3,7 @@ import express from "express";
 import { body } from "express-validator";
 import AuditLog from "../models/AuditLog.js";
 import { requireOwner } from "../middleware/auth.js";
+import { deviceTypeFor } from "../utils/auditLogger.js";
 
 const router = express.Router();
 
@@ -10,7 +11,12 @@ const router = express.Router();
 router.get("/", requireOwner, async (req, res) => {
   try {
     const logs = await AuditLog.find().sort({ createdAt: -1 });
-    res.json(logs);
+    // Entries written before deviceType existed have "" stored — derive it
+    // from their already-stored userAgent instead of leaving them blank.
+    const withDevice = logs.map((log) =>
+      log.deviceType ? log : { ...log.toObject(), deviceType: deviceTypeFor(log.userAgent) }
+    );
+    res.json(withDevice);
   } catch (err) {
     console.error("❌ Error fetching audit log:", err);
     res.status(500).json({ error: "Server error" });

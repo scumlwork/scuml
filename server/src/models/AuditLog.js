@@ -19,6 +19,7 @@ const AuditLogSchema = new mongoose.Schema(
     ip: { type: String, default: "" },
     location: { type: String, default: "" }, // e.g. "City, Region, Country"
     userAgent: { type: String, default: "" },
+    deviceType: { type: String, default: "" }, // "Phone" | "Tablet" | "Laptop/Desktop" | "Unknown"
   },
   { timestamps: true }
 );
