@@ -429,7 +429,7 @@ function LetterPage({ children, last }: { children: React.ReactNode; last?: bool
   );
 }
 
-function LetterOfInvitationBody({ reportingDateStr, signature }: { reportingDateStr: string; signature: string | null }) {
+function LetterOfInvitationBody({ reportingDateStr }: { reportingDateStr: string }) {
   return (
     <>
       <Text fontWeight="bold" textDecoration="underline" mb={0}>LETTER OF INVITATION</Text>
@@ -679,8 +679,8 @@ function GeneratedLetter({
         try {
           await navigator.share({ files: [file], title: subject, text: subject });
           return;
-        } catch (shareErr: any) {
-          if (shareErr?.name === 'AbortError') return; // user closed the share sheet — not an error
+        } catch (shareErr: unknown) {
+          if (shareErr instanceof Error && shareErr.name === 'AbortError') return; // user closed the share sheet — not an error
           // Any other native-share failure: fall through to the link fallback below.
         }
       }
@@ -740,9 +740,9 @@ function GeneratedLetter({
         { withCredentials: true, headers: { 'X-CSRF-Token': csrfRes.data.csrfToken } }
       );
       toast({ title: `Email sent to ${res.data.sentTo}.`, status: 'success', duration: 4000, isClosable: true });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Email send failed:', err);
-      const message = err?.response?.data?.error || 'Failed to send the email.';
+      const message = (axios.isAxiosError(err) && err.response?.data?.error) || 'Failed to send the email.';
       toast({ title: message, status: 'error', duration: 4000, isClosable: true });
     } finally {
       setSharing(false);
@@ -787,7 +787,7 @@ function GeneratedLetter({
           {isWarning ? (
             <WarningLetterBody reportingDateStr={reportingDateStr} />
           ) : (
-            <LetterOfInvitationBody reportingDateStr={reportingDateStr} signature={signature} />
+            <LetterOfInvitationBody reportingDateStr={reportingDateStr} />
           )}
         </LetterPage>
 
