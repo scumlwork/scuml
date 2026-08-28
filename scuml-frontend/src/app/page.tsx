@@ -1404,6 +1404,16 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
       {user.role === 'superadmin' && (
         <Button size="sm" colorScheme="blue" onClick={() => setAddRecordType('letter')}>Actions</Button>
       )}
+      {user.role === 'superadmin' && (
+        <Button
+          size="sm"
+          colorScheme="blue"
+          variant="outline"
+          onClick={() => router.push(`/letters/initiate?company=${selectedRegistration._id}`)}
+        >
+          Initiate Letters
+        </Button>
+      )}
     </HStack>
   )}
 
@@ -1419,16 +1429,6 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
           {addRecordType === 'offsite' && 'Add Off-Site Inspection'}
         </Text>
         <HStack spacing={2}>
-          {addRecordType === 'letter' && (
-            <Button
-              size="xs"
-              colorScheme="blue"
-              variant="outline"
-              onClick={() => router.push(`/letters/initiate?company=${selectedRegistration._id}`)}
-            >
-              Initiate Letters
-            </Button>
-          )}
           <Button size="xs" variant="ghost" onClick={() => setAddRecordType(null)}>Cancel</Button>
         </HStack>
       </HStack>

@@ -23,7 +23,7 @@ import {
   MenuItem,
 } from '@chakra-ui/react';
 import { ArrowBackIcon } from '@chakra-ui/icons';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import axios from 'axios';
 import jsPDF from 'jspdf';
@@ -66,6 +66,29 @@ function formatOrdinalDateString(dateStr: string) {
   return formatOrdinalDate(new Date(y, m - 1, d));
 }
 
+// Fixed signature image used on every generated letter — see
+// public/IBRAHIM_signature.png.
+const SIGNATURE_SRC = '/IBRAHIM_signature.png';
+
+// Builds Google Calendar's event-creation URL for the Reporting Date, with
+// a note reading "Meeting in {companyName} today" — an all-day event since
+// there's no time field, just a date.
+function buildGoogleCalendarUrl(companyName: string, dateStr: string) {
+  const start = dateStr.replace(/-/g, '');
+  const endDateObj = new Date(dateStr);
+  endDateObj.setDate(endDateObj.getDate() + 1);
+  const end = endDateObj.toISOString().split('T')[0].replace(/-/g, '');
+  const note = `Meeting in ${companyName} today`;
+
+  const params = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: note,
+    dates: `${start}/${end}`,
+    details: note,
+  });
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}
+
 export default function InitiateLettersPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -103,8 +126,6 @@ export default function InitiateLettersPage() {
   const [letterType, setLetterType] = useState('');
   const [title, setTitle] = useState('');
   const [reportingDate, setReportingDate] = useState('');
-  const [signature, setSignature] = useState<string | null>(null);
-  const signatureInputRef = useRef<HTMLInputElement>(null);
   const [generated, setGenerated] = useState(false);
   const [todayStr] = useState(() => formatOrdinalDate(new Date()));
 
@@ -141,14 +162,6 @@ export default function InitiateLettersPage() {
     }
   };
 
-  const handleSignatureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setSignature(reader.result as string);
-    reader.readAsDataURL(file);
-  };
-
   const canGenerate =
     !!company &&
     (letterType === 'Letter of Invitation' || letterType === 'Warning Letter') &&
@@ -162,6 +175,12 @@ export default function InitiateLettersPage() {
   const handleGenerate = async () => {
     if (!company) return;
     setGenerated(true);
+
+    // Open the calendar tab synchronously, inside the click's trusted-event
+    // window — opening it later (after the async work) gets silently
+    // blocked as a popup by Chrome.
+    const calendarWindow = window.open('', '_blank');
+
     try {
       const refNumber = `CR:3000/EFCC/BNZ /SCUML /002/${company.serialNumber || ''}`;
       const csrfRes = await axios.get(
@@ -175,6 +194,14 @@ export default function InitiateLettersPage() {
       );
     } catch (err) {
       console.error('Failed to record generated letter:', err);
+    } finally {
+      if (calendarWindow) {
+        if (reportingDate) {
+          calendarWindow.location.href = buildGoogleCalendarUrl(company.companyName, reportingDate);
+        } else {
+          calendarWindow.close();
+        }
+      }
     }
   };
 
@@ -186,7 +213,6 @@ export default function InitiateLettersPage() {
         title={title}
         todayStr={todayStr}
         reportingDateStr={formatOrdinalDateString(reportingDate)}
-        signature={signature}
         onBack={() => setGenerated(false)}
       />
     );
@@ -292,20 +318,6 @@ export default function InitiateLettersPage() {
                     />
                   </FormControl>
 
-                  <FormControl>
-                    <FormLabel>Signature (optional)</FormLabel>
-                    <Input
-                      ref={signatureInputRef}
-                      type="file"
-                      accept="image/*"
-                      p={1}
-                      onChange={handleSignatureChange}
-                    />
-                    {signature && (
-                      <Image src={signature} alt="Signature preview" mt={2} maxH="60px" />
-                    )}
-                  </FormControl>
-
                   <Button
                     colorScheme="red"
                     size="lg"
@@ -386,22 +398,21 @@ function LetterHeader({
   );
 }
 
-// Shared signature block used at the end of every letter type.
-function SignatureBlock({ signature }: { signature: string | null }) {
+// Shared signature block used at the end of every letter type — always the
+// same fixed signature image, permanently, on every generated letter.
+function SignatureBlock() {
   return (
     <Box>
-      {signature && (
-        <Image
-          src={signature}
-          alt="Signature"
-          maxH="60px"
-          maxW="180px"
-          objectFit="contain"
-          display="block"
-          ml="-8px"
-          mb={-1}
-        />
-      )}
+      <Image
+        src={SIGNATURE_SRC}
+        alt="Signature"
+        maxH="60px"
+        maxW="180px"
+        objectFit="contain"
+        display="block"
+        ml="-8px"
+        mb={-1}
+      />
       <Text fontWeight="bold">SE Ibrahim Boyi</Text>
       <Text>Zonal Coordinator SCUML, Benin</Text>
     </Box>
@@ -465,7 +476,7 @@ function LetterOfInvitationBody({ reportingDateStr }: { reportingDateStr: string
   );
 }
 
-function LetterOfInvitationPage2({ signature }: { signature: string | null }) {
+function LetterOfInvitationPage2() {
   return (
     <>
       <VStack align="stretch" spacing={7} mb={8}>
@@ -495,7 +506,7 @@ function LetterOfInvitationPage2({ signature }: { signature: string | null }) {
       </Text>
 
       <Box mt="auto">
-        <SignatureBlock signature={signature} />
+        <SignatureBlock />
       </Box>
     </>
   );
@@ -539,7 +550,7 @@ function WarningLetterBody({ reportingDateStr }: { reportingDateStr: string }) {
   );
 }
 
-function WarningLetterPage2({ signature }: { signature: string | null }) {
+function WarningLetterPage2() {
   return (
     <>
       <VStack align="stretch" spacing={7} mb={8}>
@@ -569,7 +580,7 @@ function WarningLetterPage2({ signature }: { signature: string | null }) {
       </Text>
 
       <Box mt="auto">
-        <SignatureBlock signature={signature} />
+        <SignatureBlock />
       </Box>
     </>
   );
@@ -581,7 +592,6 @@ function GeneratedLetter({
   title,
   todayStr,
   reportingDateStr,
-  signature,
   onBack,
 }: {
   letterType: string;
@@ -589,7 +599,6 @@ function GeneratedLetter({
   title: string;
   todayStr: string;
   reportingDateStr: string;
-  signature: string | null;
   onBack: () => void;
 }) {
   const refNumber = `CR:3000/EFCC/BNZ /SCUML /002/${company.serialNumber || ''}`;
@@ -793,9 +802,9 @@ function GeneratedLetter({
 
         <LetterPage last>
           {isWarning ? (
-            <WarningLetterPage2 signature={signature} />
+            <WarningLetterPage2 />
           ) : (
-            <LetterOfInvitationPage2 signature={signature} />
+            <LetterOfInvitationPage2 />
           )}
         </LetterPage>
       </Box>
