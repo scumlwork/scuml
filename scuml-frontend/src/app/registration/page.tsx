@@ -35,7 +35,6 @@ export default function RegistrationPage() {
     dateOfIdentification: today,
     companyName: '',
     natureOfBusiness: '',
-    companySize: '',
     address: '',
     state: '',
     city: '',
@@ -285,20 +284,6 @@ export default function RegistrationPage() {
                   {NATURE_OF_BUSINESS_OPTIONS.map((option) => (
                     <option key={option} value={option}>{option}</option>
                   ))}
-                </Select>
-              </FormControl>
-
-              <FormControl isRequired>
-                <FormLabel>Company Size</FormLabel>
-                <Select
-                  name="companySize"
-                  value={formData.companySize}
-                  onChange={handleChange}
-                  placeholder="Select company size"
-                >
-                  <option value="Small">Small</option>
-                  <option value="Medium">Medium</option>
-                  <option value="Large">Large</option>
                 </Select>
               </FormControl>
 

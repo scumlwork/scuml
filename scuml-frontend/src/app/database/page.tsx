@@ -214,6 +214,50 @@ interface GeneratedLetterRecord {
   createdAt: string;
 }
 
+interface YesNoCustom {
+  value: string;
+  custom: string;
+}
+
+interface SpotCheckRecord {
+  _id: string;
+  registrationWithScuml?: YesNoCustom;
+  scumlCertificateDisplay?: YesNoCustom;
+  amlNoticeDisplay?: YesNoCustom;
+  dateOfCommencement?: string;
+  dateOfSpotCheck?: string;
+  sector?: string;
+  totalRooms?: string;
+  roomRateLowest?: number;
+  roomRateHighest?: number;
+  facility?: string;
+  facilityRateLowest?: number;
+  facilityRateHighest?: number;
+  occupancyRate?: string;
+  occupiedRooms?: string;
+  scumlReporting?: YesNoCustom;
+  staffScumlAwareness?: YesNoCustom;
+  avgVehicleType?: string;
+  avgVehicleNumber?: string;
+  avgPriceLowest?: number;
+  avgPriceHighest?: number;
+  customers?: string;
+  typesOfServices?: string;
+  customersClients?: string;
+  majorCustomersClients?: string;
+  majorProjects?: string;
+  highestAmountReceived?: number;
+  dateOfLastTransaction?: string;
+  contactPerson?: string;
+  position?: string;
+  phone?: string;
+  email?: string;
+  initiateLetter?: YesNoCustom;
+  companySize?: string;
+  createdBy: string;
+  createdAt?: string;
+}
+
 interface Registration {
   _id: string;
   serialNumber?: string;
@@ -238,6 +282,21 @@ interface Registration {
   trainings: Training[];
   violations: Violation[];
   generatedLetters: GeneratedLetterRecord[];
+  spotChecks: SpotCheckRecord[];
+}
+
+// A Yes/No/Custom field displays as "Yes"/"No", or the free-text answer
+// when Custom was picked.
+function formatYNC(v?: YesNoCustom): string {
+  if (!v || !v.value) return 'N/A';
+  return v.value === 'Custom' ? v.custom || 'N/A' : v.value;
+}
+
+// A "Lowest ... Highest ..." pair, used for the several rate/price ranges
+// on the Spot Check form.
+function formatRange(lowest?: number, highest?: number): string {
+  if (lowest === undefined && highest === undefined) return 'N/A';
+  return `Lowest: ${lowest ?? 'N/A'}, Highest: ${highest ?? 'N/A'}`;
 }
 
 // Label on the left, value on the right — long values wrap within their own
@@ -379,7 +438,7 @@ export default function DatabasePage() {
 
   // Single-record delete confirmation
   const [pendingDelete, setPendingDelete] = useState<{
-    type: "letter" | "sanction" | "inspection" | "onsite" | "training" | "violation" | "generatedLetter";
+    type: "letter" | "sanction" | "inspection" | "onsite" | "training" | "violation" | "generatedLetter" | "spotcheck";
     id: string;
   } | null>(null);
   const {
@@ -578,7 +637,7 @@ const [editType, setEditType] = useState<
 
   // 🔹 Delete (asks for confirmation first)
   const handleDelete = (
-    type: "letter" | "sanction" | "inspection" | "onsite" | "training" | "violation" | "generatedLetter",
+    type: "letter" | "sanction" | "inspection" | "onsite" | "training" | "violation" | "generatedLetter" | "spotcheck",
     id: string
   ) => {
     setPendingDelete({ type, id });
@@ -640,6 +699,13 @@ const [editType, setEditType] = useState<
         };
       }
 
+      if (type === "spotcheck") {
+        return {
+          ...r,
+          spotChecks: r.spotChecks.filter((s) => s._id !== id),
+        };
+      }
+
       return r;
     });
 
@@ -686,13 +752,23 @@ const handleEdit = (
 
 // 🔹 Map frontend type to backend API path
 const getApiPath = (
-  type: "letter" | "sanction" | "inspection" | "onsite" | "training" | "violation" | "registration" | "generatedLetter"
+  type:
+    | "letter"
+    | "sanction"
+    | "inspection"
+    | "onsite"
+    | "training"
+    | "violation"
+    | "registration"
+    | "generatedLetter"
+    | "spotcheck"
 ) => {
   if (type === "inspection") return "offsite-inspections";
   if (type === "onsite") return "on-site-inspections";
   if (type === "training") return "trainings";
   if (type === "registration") return "registrations";
   if (type === "generatedLetter") return "generated-letters";
+  if (type === "spotcheck") return "spot-checks";
   return `${type}s`; // letters, sanctions
 };
 
@@ -1051,6 +1127,75 @@ const handleSaveEdit = async () => {
                     ))
                   ) : (
                     <Text>No initiated letters</Text>
+                  )}
+                </Box>
+
+                {/* 📌 Spot Checks */}
+                <Box w="full">
+                  <Text fontWeight="bold">Spot Checks</Text>
+                  {selectedCompany.spotChecks.length > 0 ? (
+                    selectedCompany.spotChecks.map((sc) => (
+                      <Flex key={sc._id} p={3} borderWidth="1px" my={2} justify="space-between" align="start">
+                        <Box>
+                          <Text>Registration with SCUML: {formatYNC(sc.registrationWithScuml)}</Text>
+                          <Text>SCUML Certificate Display: {formatYNC(sc.scumlCertificateDisplay)}</Text>
+                          <Text>AML Notice Display: {formatYNC(sc.amlNoticeDisplay)}</Text>
+                          <Text>Date of Commencement: {sc.dateOfCommencement || "N/A"}</Text>
+                          <Text>Date Spot Check: {sc.dateOfSpotCheck || "N/A"}</Text>
+                          <Text>Sector: {sc.sector || "N/A"}</Text>
+
+                          {sc.sector === 'Hotel & Hospitality Industries' && (
+                            <>
+                              <Text>Total No. Of Rooms: {sc.totalRooms || "N/A"}</Text>
+                              <Text>Room Rate: {formatRange(sc.roomRateLowest, sc.roomRateHighest)}</Text>
+                              <Text>Facility: {sc.facility || "N/A"}</Text>
+                              <Text>Facility Rates: {formatRange(sc.facilityRateLowest, sc.facilityRateHighest)}</Text>
+                              <Text>Occupancy Rates: {sc.occupancyRate || "N/A"}</Text>
+                              <Text>Occupied Rooms: {sc.occupiedRooms || "N/A"}</Text>
+                              <Text>Scuml Reporting: {formatYNC(sc.scumlReporting)}</Text>
+                              <Text>Staff Scuml Awareness: {formatYNC(sc.staffScumlAwareness)}</Text>
+                            </>
+                          )}
+
+                          {sc.sector === 'Automobile/Car Dealers' && (
+                            <>
+                              <Text>Average Type Vehicle: {sc.avgVehicleType || "N/A"}</Text>
+                              <Text>Average Number Vehicle: {sc.avgVehicleNumber || "N/A"}</Text>
+                              <Text>Average Price: {formatRange(sc.avgPriceLowest, sc.avgPriceHighest)}</Text>
+                              <Text>Customers: {sc.customers || "N/A"}</Text>
+                            </>
+                          )}
+
+                          {sc.sector === 'Other Business' && (
+                            <>
+                              <Text>Types of Services: {sc.typesOfServices || "N/A"}</Text>
+                              <Text>Customers/Clients: {sc.customersClients || "N/A"}</Text>
+                              <Text>Major Customers/Clients: {sc.majorCustomersClients || "N/A"}</Text>
+                              <Text>Major Projects (last 3yrs): {sc.majorProjects || "N/A"}</Text>
+                              <Text>Highest Amount Received (last 3yrs): {sc.highestAmountReceived ?? "N/A"}</Text>
+                              <Text>Date of Last Transaction: {sc.dateOfLastTransaction || "N/A"}</Text>
+                            </>
+                          )}
+
+                          <Text>Contact Person: {sc.contactPerson || "N/A"}</Text>
+                          <Text>Position: {sc.position || "N/A"}</Text>
+                          <Text>Phone: {sc.phone || "N/A"}</Text>
+                          <Text>Email: {sc.email || "N/A"}</Text>
+                          <Text>Initiate Letter: {formatYNC(sc.initiateLetter)}</Text>
+                          <Text>Size of Business: {sc.companySize || "N/A"}</Text>
+                          <Text fontSize="xs" color="gray.500">
+                            Entered by: {sc.createdBy || "N/A"}
+                          </Text>
+                        </Box>
+                        <HStack>
+                          <Button size="xs" colorScheme="red" onClick={() => handleDelete("spotcheck", sc._id)}>
+                            Delete
+                          </Button>
+                        </HStack>
+                      </Flex>
+                    ))
+                  ) : (
+                    <Text>No spot checks</Text>
                   )}
                 </Box>
 

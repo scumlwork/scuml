@@ -33,7 +33,8 @@ import {
   Tbody,        // ✅ added
   Tr,           // ✅ added
   Th,           // ✅ added
-  Td            // ✅ added
+  Td,           // ✅ added
+  Badge,
 } from '@chakra-ui/react';
 
 import { HamburgerIcon, ChevronLeftIcon, ChevronRightIcon } from '@chakra-ui/icons';
@@ -47,6 +48,7 @@ import ViolationForm from '@/components/forms/ViolationForm';
 import TrainingForm from '@/components/forms/TrainingForm';
 import OnSiteInspectionForm from '@/components/forms/OnSiteInspectionForm';
 import OffSiteInspectionForm from '@/components/forms/OffSiteInspectionForm';
+import SpotCheckForm from '@/components/forms/SpotCheckForm';
 
 const DEFAULT_AVATAR =
   "https://res.cloudinary.com/dtseei2ze/image/upload/v1756982016/default-avatar_w9umu2.jpg";
@@ -203,6 +205,47 @@ type OffSiteInspection = {
 };
 
 
+type YesNoCustom = { value: string; custom: string };
+
+type SpotCheck = {
+  _id: string;
+  registrationWithScuml?: YesNoCustom;
+  scumlCertificateDisplay?: YesNoCustom;
+  amlNoticeDisplay?: YesNoCustom;
+  dateOfCommencement?: string;
+  dateOfSpotCheck?: string;
+  sector?: string;
+  totalRooms?: string;
+  roomRateLowest?: number;
+  roomRateHighest?: number;
+  facility?: string;
+  facilityRateLowest?: number;
+  facilityRateHighest?: number;
+  occupancyRate?: string;
+  occupiedRooms?: string;
+  scumlReporting?: YesNoCustom;
+  staffScumlAwareness?: YesNoCustom;
+  avgVehicleType?: string;
+  avgVehicleNumber?: string;
+  avgPriceLowest?: number;
+  avgPriceHighest?: number;
+  customers?: string;
+  typesOfServices?: string;
+  customersClients?: string;
+  majorCustomersClients?: string;
+  majorProjects?: string;
+  highestAmountReceived?: number;
+  dateOfLastTransaction?: string;
+  contactPerson?: string;
+  position?: string;
+  phone?: string;
+  email?: string;
+  initiateLetter?: YesNoCustom;
+  companySize?: string;
+  createdBy: string;
+  createdAt?: string;
+};
+
 // 🔹 Extend Registration
 type Registration = {
   _id: string;
@@ -228,7 +271,22 @@ type Registration = {
   trainings?: Training[];
   violations?: Violation[];
   generatedLetters?: GeneratedLetterRecord[];
+  spotChecks?: SpotCheck[];
 };
+
+// A Yes/No/Custom field displays as "Yes"/"No", or the free-text answer
+// when Custom was picked.
+function formatYNC(v?: YesNoCustom): string {
+  if (!v || !v.value) return 'N/A';
+  return v.value === 'Custom' ? v.custom || 'N/A' : v.value;
+}
+
+// A "Lowest ... Highest ..." pair, used for the several rate/price ranges
+// on the Spot Check form.
+function formatRange(lowest?: number, highest?: number): string {
+  if (lowest === undefined && highest === undefined) return 'N/A';
+  return `Lowest: ${lowest ?? 'N/A'}, Highest: ${highest ?? 'N/A'}`;
+}
 
 // Label on the left, value on the right — long values wrap within their own
 // column instead of dropping below the label.
@@ -350,6 +408,26 @@ export default function HomePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { isOpen, onOpen, onClose } = useDisclosure();
   const { isOpen: isLinksOpen, onOpen: onLinksOpen, onClose: onLinksClose } = useDisclosure();
+
+  // 🔹 Unread message count for the "Messages" sidebar badge — polled
+  // every 10s so it stays current without a WebSocket.
+  const [unreadMessageCount, setUnreadMessageCount] = useState(0);
+  useEffect(() => {
+    if (!user) return;
+    const fetchUnread = async () => {
+      try {
+        const res = await axios.get(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/messages/unread-count`, {
+          withCredentials: true,
+        });
+        setUnreadMessageCount(res.data.count || 0);
+      } catch (err) {
+        // ignore — a stale/expired session shouldn't spam the console every poll
+      }
+    };
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 10000);
+    return () => clearInterval(interval);
+  }, [user]);
 
   // 🔹 Registrations state
   const [registrations, setRegistrations] = useState<Registration[]>([]);
@@ -535,7 +613,7 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
 
   // 🔹 Inline "add a record" panel inside the Company Compliance Record modal
   const [addRecordType, setAddRecordType] = useState<
-    'letter' | 'sanction' | 'violation' | 'training' | 'onsite' | 'offsite' | null
+    'letter' | 'sanction' | 'violation' | 'training' | 'onsite' | 'offsite' | 'spotcheck' | null
   >(null);
   const addActionsFormRef = useRef<HTMLDivElement>(null);
 
@@ -677,35 +755,48 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
     { label: "Admin", path: "database", superadminOnly: true, ownerOnly: false, guestVisible: false },      // ✅ links to /database
     { label: "Audit Log", path: "audit-log", superadminOnly: true, ownerOnly: true, guestVisible: false },
     { label: "Identification", path: "registration", superadminOnly: false, ownerOnly: false, guestVisible: true }, // ✅ links to /registration
-    { label: "Off-Site Inspection", path: "off-site-inspection", superadminOnly: false, ownerOnly: false, guestVisible: false },
-    { label: "On-Site Inspection", path: "on-site-inspection", superadminOnly: false, ownerOnly: false, guestVisible: false },
-    { label: "Violations", path: "violations", superadminOnly: true, ownerOnly: false, guestVisible: false },
-    { label: "Sanctions Registration", path: "sanction", superadminOnly: false, ownerOnly: false, guestVisible: false },
-    { label: "Training Records", path: "training", superadminOnly: true, ownerOnly: false, guestVisible: false },
-    { label: "Actions", path: "letters", superadminOnly: true, ownerOnly: false, guestVisible: false },
+    // Off-Site/On-Site Inspection, Violations, Sanctions Registration,
+    // Training Records, and Actions were removed from here — every one of
+    // them is already reachable from inside a company's Compliance Record
+    // ("Add Actions"), so a separate sidebar button was pure duplication.
     { label: "User", path: "register", superadminOnly: true, ownerOnly: false, guestVisible: false },
+    { label: "Messages", path: "messages", superadminOnly: false, ownerOnly: false, guestVisible: true },
   ]
     .filter((item) => !item.superadminOnly || user.role === "superadmin")
     .filter((item) => !item.ownerOnly || user.isOwner)
     .filter((item) => item.guestVisible || user.role !== "guest")
     .map((item) => (
-    <Button
-      key={item.label}
-      size="sm"
-      w="90%"
-      mx="auto"
-      px={3}
-      py={2}
-      bg="red.500"
-      color="white"
-      _hover={{ bg: "red.600" }}
-      boxSizing="border-box"
-      onClick={() => {
-        router.push(`/${item.path}`);
-      }}
-    >
-      {item.label}
-    </Button>
+    <Box key={item.label} position="relative" w="90%" mx="auto">
+      <Button
+        size="sm"
+        w="100%"
+        px={3}
+        py={2}
+        bg="red.500"
+        color="white"
+        _hover={{ bg: "red.600" }}
+        boxSizing="border-box"
+        onClick={() => {
+          router.push(`/${item.path}`);
+        }}
+      >
+        {item.label}
+      </Button>
+      {item.path === 'messages' && unreadMessageCount > 0 && (
+        <Badge
+          colorScheme="yellow"
+          borderRadius="full"
+          position="absolute"
+          top="-6px"
+          right="-6px"
+          fontSize="0.65rem"
+          minW="18px"
+          textAlign="center"
+        >
+          {unreadMessageCount > 99 ? '99+' : unreadMessageCount}
+        </Badge>
+      )}
+    </Box>
   ))}
 </Box>
 
@@ -764,6 +855,7 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
         onClick={onOpen}
         zIndex={10}
       />
+
 
       {/* Sidebar (desktop) */}
       <Box
@@ -1381,6 +1473,75 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
   </Box>
 )}
 
+{/* Spot Checks — visible to staff and superadmin, same as Off-Site/
+    On-Site Inspection and Sanctions Registration (not superadmin-only). */}
+{user.role !== 'guest' && selectedRegistration.spotChecks && selectedRegistration.spotChecks.length > 0 && (
+  <Box mt={4}>
+    <HStack justify="space-between" mb={2}>
+      <Text fontSize="lg" fontWeight="bold" color="cyan.700">
+        Spot Checks
+      </Text>
+      <Button size="xs" colorScheme="cyan" variant="outline" onClick={() => setAddRecordType('spotcheck')}>
+        + Add More
+      </Button>
+    </HStack>
+
+    {selectedRegistration.spotChecks.map((sc) => (
+      <Box key={sc._id} p={2} borderWidth="1px" borderRadius="md" mb={3}>
+        <InspectionField label="Registration with SCUML" value={formatYNC(sc.registrationWithScuml)} />
+        <InspectionField label="SCUML Certificate Display" value={formatYNC(sc.scumlCertificateDisplay)} />
+        <InspectionField label="AML Notice Display" value={formatYNC(sc.amlNoticeDisplay)} />
+        <InspectionField label="Date of Commencement" value={sc.dateOfCommencement || "N/A"} />
+        <InspectionField label="Date Spot Check" value={sc.dateOfSpotCheck || "N/A"} />
+        <InspectionField label="Sector" value={sc.sector || "N/A"} />
+
+        {sc.sector === 'Hotel & Hospitality Industries' && (
+          <>
+            <InspectionField label="Total No. Of Rooms" value={sc.totalRooms || "N/A"} />
+            <InspectionField label="Room Rate" value={formatRange(sc.roomRateLowest, sc.roomRateHighest)} />
+            <InspectionField label="Facility" value={sc.facility || "N/A"} />
+            <InspectionField label="Facility Rates" value={formatRange(sc.facilityRateLowest, sc.facilityRateHighest)} />
+            <InspectionField label="Occupancy Rates" value={sc.occupancyRate || "N/A"} />
+            <InspectionField label="Occupied Rooms" value={sc.occupiedRooms || "N/A"} />
+            <InspectionField label="Scuml Reporting" value={formatYNC(sc.scumlReporting)} />
+            <InspectionField label="Staff Scuml Awareness" value={formatYNC(sc.staffScumlAwareness)} />
+          </>
+        )}
+
+        {sc.sector === 'Automobile/Car Dealers' && (
+          <>
+            <InspectionField label="Average Type Vehicle" value={sc.avgVehicleType || "N/A"} />
+            <InspectionField label="Average Number Vehicle" value={sc.avgVehicleNumber || "N/A"} />
+            <InspectionField label="Average Price" value={formatRange(sc.avgPriceLowest, sc.avgPriceHighest)} />
+            <InspectionField label="Customers" value={sc.customers || "N/A"} />
+          </>
+        )}
+
+        {sc.sector === 'Other Business' && (
+          <>
+            <InspectionField label="Types of Services" value={sc.typesOfServices || "N/A"} />
+            <InspectionField label="Customers/Clients" value={sc.customersClients || "N/A"} />
+            <InspectionField label="Major Customers/Clients" value={sc.majorCustomersClients || "N/A"} />
+            <InspectionField label="Major Projects (last 3yrs)" value={sc.majorProjects || "N/A"} />
+            <InspectionField label="Highest Amount Received (last 3yrs)" value={sc.highestAmountReceived ?? "N/A"} />
+            <InspectionField label="Date of Last Transaction" value={sc.dateOfLastTransaction || "N/A"} />
+          </>
+        )}
+
+        <InspectionField label="Contact Person" value={sc.contactPerson || "N/A"} />
+        <InspectionField label="Position" value={sc.position || "N/A"} />
+        <InspectionField label="Phone" value={sc.phone || "N/A"} />
+        <InspectionField label="Email" value={sc.email || "N/A"} />
+        <InspectionField label="Initiate Letter" value={formatYNC(sc.initiateLetter)} />
+        <InspectionField label="Size of Business" value={sc.companySize || "N/A"} />
+        <Text fontSize="xs" color="gray.500" mt={1}>
+          Entered by: {sc.createdBy || 'N/A'}
+        </Text>
+      </Box>
+    ))}
+  </Box>
+)}
+
 {/* Add Actions — pick a record type to add for this company without
     leaving the compliance record. Same forms as the side-nav pages,
     just embedded here with the company already selected. Hidden entirely
@@ -1394,6 +1555,7 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
     <HStack spacing={2} flexWrap="wrap">
       <Button size="sm" colorScheme="purple" onClick={() => setAddRecordType('offsite')}>Off-Site Inspection</Button>
       <Button size="sm" colorScheme="green" onClick={() => setAddRecordType('onsite')}>On-Site Inspection</Button>
+      <Button size="sm" colorScheme="cyan" onClick={() => setAddRecordType('spotcheck')}>Spot Check</Button>
       {user.role === 'superadmin' && (
         <Button size="sm" colorScheme="red" onClick={() => setAddRecordType('violation')}>Violations</Button>
       )}
@@ -1427,6 +1589,7 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
           {addRecordType === 'training' && 'Add Training'}
           {addRecordType === 'onsite' && 'Add On-Site Inspection'}
           {addRecordType === 'offsite' && 'Add Off-Site Inspection'}
+          {addRecordType === 'spotcheck' && 'Add Spot Check'}
         </Text>
         <HStack spacing={2}>
           <Button size="xs" variant="ghost" onClick={() => setAddRecordType(null)}>Cancel</Button>
@@ -1478,6 +1641,13 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
       )}
       {addRecordType === 'offsite' && (
         <OffSiteInspectionForm
+          companyId={selectedRegistration._id}
+          companyName={selectedRegistration.companyName}
+          onSuccess={handleAddRecordSuccess}
+        />
+      )}
+      {addRecordType === 'spotcheck' && (
+        <SpotCheckForm
           companyId={selectedRegistration._id}
           companyName={selectedRegistration.companyName}
           onSuccess={handleAddRecordSuccess}

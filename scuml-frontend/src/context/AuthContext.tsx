@@ -1,8 +1,9 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import axios from 'axios';
 import { Center, Spinner } from '@chakra-ui/react';
+import { playMessageAlert } from '@/lib/alertSound';
 
 type User = {
   id: string;
@@ -56,6 +57,45 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     checkAuth();
   }, []);
+
+  // 🔊 Alert tone on every new message, for every logged-in account,
+  // everywhere in the app — AuthProvider wraps every page (there's no
+  // single shared layout otherwise), so this is the one place that can
+  // poll globally instead of only on the home page. `null` on the ref
+  // means "no baseline yet" — the first poll after login just records the
+  // count, so an already-existing unread count doesn't play a sound on
+  // every page load; only a genuine increase after that does.
+  const previousUnreadCountRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!user) {
+      previousUnreadCountRef.current = null;
+      return;
+    }
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const res = await axios.get(
+          `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/messages/unread-count`,
+          { withCredentials: true }
+        );
+        if (cancelled) return;
+        const count: number = res.data?.count ?? 0;
+        const prev = previousUnreadCountRef.current;
+        if (prev !== null && count > prev) {
+          playMessageAlert();
+        }
+        previousUnreadCountRef.current = count;
+      } catch {
+        // A stale/expired session shouldn't spam anything here.
+      }
+    };
+    poll();
+    const interval = setInterval(poll, 10000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [user]);
 
   const login = async (username: string, password: string) => {
     const csrfToken = await getCsrfToken(); // 🔑 must fetch first

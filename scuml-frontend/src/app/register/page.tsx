@@ -33,6 +33,7 @@ import { ViewIcon, ViewOffIcon } from '@chakra-ui/icons';
 import axios from 'axios';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import ChatThread from '@/components/ChatThread';
 
 type ManagedUser = {
   id: string;
@@ -105,6 +106,14 @@ export default function RegisterPage() {
     onOpen: onResetOpen,
     onClose: onResetClose,
   } = useDisclosure();
+
+  // 🔹 Chat with a user account
+  const [chatTarget, setChatTarget] = useState<ManagedUser | null>(null);
+  const { isOpen: isChatOpen, onOpen: onChatOpen, onClose: onChatClose } = useDisclosure();
+  const handleOpenChat = (target: ManagedUser) => {
+    setChatTarget(target);
+    onChatOpen();
+  };
 
   // 🔹 2FA setup — shown right after creating a new superadmin, or on demand
   // for an existing one (self-service, own account only) via "Set Up 2FA"
@@ -577,6 +586,11 @@ export default function RegisterPage() {
                     </Td>
                     <Td>
                       <HStack spacing={2}>
+                        {u.id !== user.id && (
+                          <Button size="xs" colorScheme="cyan" onClick={() => handleOpenChat(u)}>
+                            Chat
+                          </Button>
+                        )}
                         <Button size="xs" colorScheme="teal" onClick={() => handleOpenRename(u)}>
                           Edit Username
                         </Button>
@@ -755,6 +769,20 @@ export default function RegisterPage() {
               I&apos;ve Set It Up
             </Button>
           </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* 🔹 Chat with a user */}
+      <Modal isOpen={isChatOpen} onClose={onChatClose} size="md">
+        <ModalOverlay />
+        <ModalContent mx={4}>
+          <ModalHeader>Chat with {chatTarget?.username}</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody pb={4}>
+            {chatTarget && (
+              <ChatThread otherUsername={chatTarget.username} onChatDeleted={onChatClose} />
+            )}
+          </ModalBody>
         </ModalContent>
       </Modal>
     </Box>

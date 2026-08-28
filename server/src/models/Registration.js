@@ -8,10 +8,14 @@ const RegistrationSchema = new mongoose.Schema(
     dateOfIdentification: { type: String, required: true },
     companyName: { type: String, required: true, unique: true },
     natureOfBusiness: { type: String, required: true },
+    // Moved to the Spot Check form — captured there instead, per spot
+    // check, rather than once at initial identification. Kept here
+    // (optional now) only so existing registrations don't lose their
+    // already-recorded value.
     companySize: {
       type: String,
-      enum: ["Small", "Medium", "Large"],
-      required: true,
+      enum: ["", "Small", "Medium", "Large"],
+      default: "",
     },
     address: { type: String, required: true },
     state: { type: String, enum: ["Edo", "Delta", "Ondo"], required: true },
@@ -46,6 +50,7 @@ const RegistrationSchema = new mongoose.Schema(
     generatedLetters: [
       { type: mongoose.Schema.Types.ObjectId, ref: "GeneratedLetter" },
     ],
+    spotChecks: [{ type: mongoose.Schema.Types.ObjectId, ref: "SpotCheck" }],
   },
   { timestamps: true }
 );

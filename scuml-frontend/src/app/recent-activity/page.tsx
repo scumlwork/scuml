@@ -27,8 +27,9 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { useAuth } from '@/context/AuthContext';
+import ChatThread, { type ReferencedEntry } from '@/components/ChatThread';
 
-type ActivityType = 'identification' | 'action' | 'sanction' | 'violation' | 'training' | 'onsite' | 'offsite' | 'generatedLetter';
+type ActivityType = 'identification' | 'action' | 'sanction' | 'violation' | 'training' | 'onsite' | 'offsite' | 'generatedLetter' | 'spotcheck';
 
 type Activity = {
   _id: string;
@@ -50,6 +51,7 @@ const TYPE_LABELS: Record<ActivityType, string> = {
   onsite: 'On-Site Inspection',
   offsite: 'Off-Site Inspection',
   generatedLetter: 'Initiated Letter',
+  spotcheck: 'Spot Check',
 };
 
 const TYPE_COLORS: Record<ActivityType, string> = {
@@ -61,6 +63,7 @@ const TYPE_COLORS: Record<ActivityType, string> = {
   onsite: 'purple',
   offsite: 'pink',
   generatedLetter: 'yellow',
+  spotcheck: 'cyan',
 };
 
 // Each type's own single-record API path, used both to fetch details for
@@ -74,6 +77,7 @@ const API_PATH: Record<ActivityType, string> = {
   onsite: 'on-site-inspections',
   offsite: 'offsite-inspections',
   generatedLetter: 'generated-letters',
+  spotcheck: 'spot-checks',
 };
 
 const DATE_KEYS = new Set(['createdAt', 'updatedAt', 'dateOfReporting']);
@@ -155,6 +159,9 @@ export default function RecentActivityPage() {
   const [pendingDelete, setPendingDelete] = useState<Activity | null>(null);
   const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure();
   const cancelRef = useRef<HTMLButtonElement | null>(null);
+
+  const [chatActivity, setChatActivity] = useState<Activity | null>(null);
+  const { isOpen: isChatOpen, onOpen: onChatOpen, onClose: onChatClose } = useDisclosure();
 
   // 🔹 Only a superadmin may view Recent Activity.
   useEffect(() => {
@@ -240,6 +247,11 @@ export default function RecentActivityPage() {
     onDeleteOpen();
   };
 
+  const handleOpenChat = (activity: Activity) => {
+    setChatActivity(activity);
+    onChatOpen();
+  };
+
   const performDelete = async () => {
     if (!pendingDelete || !csrfToken) return;
     try {
@@ -304,6 +316,11 @@ export default function RecentActivityPage() {
                     </Text>
                   </Box>
                   <HStack>
+                    {activity.createdBy && activity.createdBy !== user.username && (
+                      <Button size="xs" colorScheme="cyan" onClick={() => handleOpenChat(activity)}>
+                        Chat
+                      </Button>
+                    )}
                     <Button size="xs" colorScheme="gray" onClick={() => handleView(activity)}>
                       View
                     </Button>
@@ -368,6 +385,31 @@ export default function RecentActivityPage() {
           </AlertDialogContent>
         </AlertDialogOverlay>
       </AlertDialog>
+
+      {/* 🔹 Chat with whoever made this entry — the entry itself rides
+          along as context on the first message. */}
+      <Modal isOpen={isChatOpen} onClose={onChatClose} size="md">
+        <ModalOverlay />
+        <ModalContent mx={4}>
+          <ModalHeader>Chat with {chatActivity?.createdBy}</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody pb={4}>
+            {chatActivity && (
+              <ChatThread
+                otherUsername={chatActivity.createdBy}
+                initialReferencedEntry={{
+                  type: chatActivity.type,
+                  refId: chatActivity.refId,
+                  companyId: chatActivity.companyId,
+                  companyName: chatActivity.companyName,
+                  summary: chatActivity.summary,
+                }}
+                onChatDeleted={onChatClose}
+              />
+            )}
+          </ModalBody>
+        </ModalContent>
+      </Modal>
     </Box>
   );
 }

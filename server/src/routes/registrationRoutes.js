@@ -15,6 +15,7 @@ import { scanBuffer } from "../utils/malwareScan.js";
 import { uploadBufferToCloudinary } from "../utils/cloudinaryUpload.js";
 import { recordAuditEvent } from "../utils/auditLogger.js";
 import GeneratedLetter from "../models/GeneratedLetter.js";
+import SpotCheck from "../models/SpotCheck.js";
 import { recordRecentActivity, clearRecentActivityForMany } from "../utils/recentActivity.js";
 
 const router = express.Router();
@@ -121,6 +122,7 @@ router.get("/", requireAuth, async (req, res) => {
       .populate("trainings")         // ✅ new
       .populate("violations")
       .populate("generatedLetters")
+      .populate("spotChecks")
       .sort({ createdAt: -1 });
 
     res.json(regs);
@@ -157,7 +159,8 @@ router.get("/:id", requireAuth, async (req, res) => {
       .populate("onSiteInspections") // ✅ new
       .populate("trainings")         // ✅ new
       .populate("violations")
-      .populate("generatedLetters");
+      .populate("generatedLetters")
+      .populate("spotChecks");
 
     if (!reg) return res.status(404).json({ error: "Not found" });
     res.json(reg);
@@ -198,6 +201,7 @@ router.delete("/:id", requireAuth, async (req, res) => {
       Training.deleteMany({ _id: { $in: reg.trainings } }),
       Violation.deleteMany({ _id: { $in: reg.violations } }),
       GeneratedLetter.deleteMany({ _id: { $in: reg.generatedLetters } }),
+      SpotCheck.deleteMany({ _id: { $in: reg.spotChecks } }),
     ]);
 
     const allRefIds = [
@@ -209,6 +213,7 @@ router.delete("/:id", requireAuth, async (req, res) => {
       ...reg.trainings,
       ...reg.violations,
       ...reg.generatedLetters,
+      ...reg.spotChecks,
     ];
     await clearRecentActivityForMany(allRefIds);
 
@@ -231,10 +236,11 @@ router.delete("/clear-all", requireSuperadmin, async (req, res) => {
     await Training.deleteMany({});         // ✅ clear trainings
     await Violation.deleteMany({});        // ✅ clear violations
     await GeneratedLetter.deleteMany({});
+    await SpotCheck.deleteMany({});
 
     res.json({
       message:
-        "All registrations, letters, sanctions, off-site inspections, on-site inspections, trainings, violations, and generated letters cleared",
+        "All registrations, letters, sanctions, off-site inspections, on-site inspections, trainings, violations, generated letters, and spot checks cleared",
     });
   } catch (err) {
     console.error("❌ Error clearing all:", err.message);

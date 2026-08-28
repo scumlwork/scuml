@@ -31,6 +31,8 @@ import userManagementRoutes from "./src/routes/userManagement.js";
 import auditLogRoutes from "./src/routes/auditLogRoutes.js";
 import recentActivityRoutes from "./src/routes/recentActivityRoutes.js";
 import generatedLetterRoutes from "./src/routes/generatedLetterRoutes.js";
+import messageRoutes from "./src/routes/messageRoutes.js";
+import spotCheckRoutes from "./src/routes/spotCheckRoutes.js";
 import maintenanceRoutes from "./src/routes/maintenanceRoutes.js";
 import sanitizeInput from "./src/middleware/sanitize.js";
 
@@ -212,6 +214,8 @@ app.use("/api/users", userSession, userManagementRoutes);
 app.use("/api/audit-log", userSession, auditLogRoutes);
 app.use("/api/recent-activity", userSession, recentActivityRoutes);
 app.use("/api/generated-letters", userSession, generatedLetterRoutes);
+app.use("/api/messages", userSession, messageRoutes);
+app.use("/api/spot-checks", userSession, spotCheckRoutes);
 
 // ✅ Admin routes now gated by superadmin role (userSession) since TOTP is disabled
 app.use("/api/admin", userSession, adminRoutes);
