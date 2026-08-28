@@ -71,14 +71,14 @@ function formatOrdinalDateString(dateStr: string) {
 const SIGNATURE_SRC = '/IBRAHIM_signature.png';
 
 // Builds Google Calendar's event-creation URL for the Reporting Date, with
-// a note reading "Meeting in {companyName} today" — an all-day event since
-// there's no time field, just a date.
+// a note reading "Meeting with {companyName} today" — an all-day event
+// since there's no time field, just a date.
 function buildGoogleCalendarUrl(companyName: string, dateStr: string) {
   const start = dateStr.replace(/-/g, '');
   const endDateObj = new Date(dateStr);
   endDateObj.setDate(endDateObj.getDate() + 1);
   const end = endDateObj.toISOString().split('T')[0].replace(/-/g, '');
-  const note = `Meeting in ${companyName} today`;
+  const note = `Meeting with ${companyName} today`;
 
   const params = new URLSearchParams({
     action: 'TEMPLATE',
