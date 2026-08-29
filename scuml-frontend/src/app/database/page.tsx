@@ -38,6 +38,9 @@ import {
   Tr,
   Th,
   Td,
+  Badge,
+  FormControl,
+  FormLabel,
 } from "@chakra-ui/react";
 
 import { useRouter, useSearchParams } from "next/navigation";
@@ -45,6 +48,7 @@ import { useAuth } from "@/context/AuthContext";
 import { ChevronLeftIcon, ChevronRightIcon } from "@chakra-ui/icons";
 import { LGA_BY_STATE } from "@/lib/nigeriaLocations";
 import { NATURE_OF_BUSINESS_OPTIONS } from "@/lib/natureOfBusiness";
+import ChatThread from "@/components/ChatThread";
 
 // 🔹 Types
 interface Letter {
@@ -258,6 +262,90 @@ interface SpotCheckRecord {
   createdAt?: string;
 }
 
+interface MemoRecord {
+  _id: string;
+  to?: string;
+  through?: string;
+  from?: string;
+  date?: string;
+  refNo?: string;
+  subject?: string;
+  message?: string;
+  createdBy: string;
+  createdAt: string;
+}
+
+// 🔹 Recent Activity — shown first when the admin page opens, same feed as
+// the dedicated /recent-activity page.
+type RAActivityType = 'identification' | 'action' | 'sanction' | 'violation' | 'training' | 'onsite' | 'offsite' | 'generatedLetter' | 'spotcheck' | 'memo';
+
+type RAActivity = {
+  _id: string;
+  type: RAActivityType;
+  refId: string;
+  companyId?: string;
+  companyName: string;
+  summary: string;
+  createdBy: string;
+  createdAt: string;
+};
+
+const RA_TYPE_LABELS: Record<RAActivityType, string> = {
+  identification: 'Identification',
+  action: 'Action',
+  sanction: 'Sanction',
+  violation: 'Violation',
+  training: 'Training',
+  onsite: 'On-Site Inspection',
+  offsite: 'Off-Site Inspection',
+  generatedLetter: 'Initiated Letter',
+  spotcheck: 'Spot Check',
+  memo: 'Memo',
+};
+
+const RA_TYPE_COLORS: Record<RAActivityType, string> = {
+  identification: 'green',
+  action: 'blue',
+  sanction: 'orange',
+  violation: 'red',
+  training: 'teal',
+  onsite: 'purple',
+  offsite: 'pink',
+  generatedLetter: 'yellow',
+  spotcheck: 'cyan',
+  memo: 'pink',
+};
+
+// Each type's own single-record API path, used both to fetch details for
+// "View" and to actually delete the underlying record.
+const RA_API_PATH: Record<RAActivityType, string> = {
+  identification: 'registrations',
+  action: 'letters',
+  sanction: 'sanctions',
+  violation: 'violations',
+  training: 'trainings',
+  onsite: 'on-site-inspections',
+  offsite: 'offsite-inspections',
+  generatedLetter: 'generated-letters',
+  spotcheck: 'spot-checks',
+  memo: 'memos',
+};
+
+function raFormatDetailValue(key: string, value: unknown): string {
+  if (value === null || value === undefined || value === '') return 'N/A';
+  if (key === 'company' && typeof value === 'object' && value !== null && 'companyName' in value) {
+    const c = value as { companyName?: string; natureOfBusiness?: string };
+    return `${c.companyName || 'N/A'}${c.natureOfBusiness ? ` (${c.natureOfBusiness})` : ''}`;
+  }
+  if (Array.isArray(value)) {
+    if (value.length === 0) return 'None';
+    if (value.every((v) => typeof v === 'string')) return `${value.length} item(s)`;
+    return JSON.stringify(value);
+  }
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
+}
+
 interface Registration {
   _id: string;
   serialNumber?: string;
@@ -422,6 +510,8 @@ export default function DatabasePage() {
 
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [loading, setLoading] = useState(true);
+  const [memos, setMemos] = useState<MemoRecord[]>([]);
+  const [expandedMemoId, setExpandedMemoId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<
     Pick<Registration, "_id" | "companyName">[]
@@ -429,6 +519,31 @@ export default function DatabasePage() {
   const [selectedCompany, setSelectedCompany] = useState<Registration | null>(
     null
   );
+  const [activeTab, setActiveTab] = useState<"recent" | "company" | "memo">("recent");
+
+  // 🔹 Recent Activity — the default view when the admin page opens.
+  const [raActivities, setRaActivities] = useState<RAActivity[]>([]);
+  const [raLoading, setRaLoading] = useState(true);
+  const [raViewDetail, setRaViewDetail] = useState<Record<string, unknown> | null>(null);
+  const [raViewing, setRaViewing] = useState(false);
+  const { isOpen: isRaViewOpen, onOpen: onRaViewOpen, onClose: onRaViewClose } = useDisclosure();
+  const [raPendingDelete, setRaPendingDelete] = useState<RAActivity | null>(null);
+  const { isOpen: isRaDeleteOpen, onOpen: onRaDeleteOpen, onClose: onRaDeleteClose } = useDisclosure();
+  const raCancelRef = useRef<HTMLButtonElement | null>(null);
+  const [raChatActivity, setRaChatActivity] = useState<RAActivity | null>(null);
+  const { isOpen: isRaChatOpen, onOpen: onRaChatOpen, onClose: onRaChatClose } = useDisclosure();
+  const [isRaClearOpen, setIsRaClearOpen] = useState(false);
+  const raClearCancelRef = useRef<HTMLButtonElement | null>(null);
+  const [isMemoClearOpen, setIsMemoClearOpen] = useState(false);
+  const memoClearCancelRef = useRef<HTMLButtonElement | null>(null);
+
+  // 🔹 Memo editing
+  const [editingMemoId, setEditingMemoId] = useState<string | null>(null);
+  const [memoEditForm, setMemoEditForm] = useState({
+    to: "", through: "", from: "", date: "", refNo: "", subject: "", message: "",
+  });
+  const [memoEditSaving, setMemoEditSaving] = useState(false);
+  const { isOpen: isMemoEditOpen, onOpen: onMemoEditOpen, onClose: onMemoEditClose } = useDisclosure();
 
   // CSRF token state
   const [csrfToken, setCsrfToken] = useState<string | null>(null);
@@ -560,12 +675,52 @@ const [editType, setEditType] = useState<
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isVerified]);
 
+  // 🔹 Fetch all memos — independent of any company, run only after
+  // verification, same as registrations.
+  useEffect(() => {
+    if (isVerified !== true) return;
+    const fetchMemos = async () => {
+      try {
+        const res = await axios.get<MemoRecord[]>(
+          `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/memos`,
+          { withCredentials: true }
+        );
+        setMemos(res.data || []);
+      } catch (err) {
+        console.error("❌ Error fetching memos:", err);
+      }
+    };
+    fetchMemos();
+  }, [isVerified]);
+
+  // 🔹 Fetch Recent Activity — the default view shown when this page opens.
+  const fetchRaActivities = async () => {
+    try {
+      setRaLoading(true);
+      const res = await axios.get<RAActivity[]>(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/recent-activity`,
+        { withCredentials: true }
+      );
+      setRaActivities(res.data || []);
+    } catch (err) {
+      console.error("❌ Error fetching recent activity:", err);
+    } finally {
+      setRaLoading(false);
+    }
+  };
+  useEffect(() => {
+    if (isVerified !== true) return;
+    fetchRaActivities();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isVerified]);
+
   // 🔹 Deep-link support — Recent Activity's "Edit" links here with
   // ?company=<id> to jump straight to that company's record.
   useEffect(() => {
     if (registrations.length === 0) return;
     const companyId = searchParams.get("company");
     if (companyId) {
+      setActiveTab("company");
       handleSelectCompany(companyId);
       // Strip ?company= from the URL right after using it — otherwise it
       // sits in browser history permanently, and pressing the browser/phone
@@ -598,6 +753,71 @@ const [editType, setEditType] = useState<
     withCredentials: true,
     headers: { "X-CSRF-Token": csrfToken || "" },
   });
+
+  // 🔹 Delete a memo — independent of any company, so this is a plain
+  // direct delete rather than going through the per-company edit machinery.
+  const handleDeleteMemo = async (id: string) => {
+    try {
+      await axios.delete(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/memos/${id}`,
+        headersWithCsrf()
+      );
+      setMemos((prev) => prev.filter((m) => m._id !== id));
+      toast({ title: "Memo deleted.", status: "success" });
+    } catch (err) {
+      console.error("❌ Error deleting memo:", err);
+      toast({ title: "Failed to delete memo.", status: "error" });
+    }
+  };
+
+  // 🔹 Clear every memo at once.
+  const handleClearAllMemos = async () => {
+    try {
+      await axios.delete(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/memos/clear-all`,
+        headersWithCsrf()
+      );
+      setMemos([]);
+      toast({ title: "All memos cleared.", status: "warning" });
+    } catch (err) {
+      console.error("❌ Error clearing memos:", err);
+      toast({ title: "Failed to clear memos.", status: "error" });
+    } finally {
+      setIsMemoClearOpen(false);
+    }
+  };
+
+  // 🔹 Edit a memo — memos aren't tied to a company, so this is its own
+  // inline form rather than the shared per-company edit machinery.
+  const handleEditMemo = (memo: MemoRecord) => {
+    setEditingMemoId(memo._id);
+    setMemoEditForm({
+      to: memo.to || "", through: memo.through || "", from: memo.from || "",
+      date: memo.date || "", refNo: memo.refNo || "", subject: memo.subject || "", message: memo.message || "",
+    });
+    onMemoEditOpen();
+  };
+
+  const handleSaveMemoEdit = async () => {
+    if (!editingMemoId) return;
+    setMemoEditSaving(true);
+    try {
+      const res = await axios.put(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/memos/${editingMemoId}`,
+        memoEditForm,
+        headersWithCsrf()
+      );
+      const updated = res.data as MemoRecord;
+      setMemos((prev) => prev.map((m) => (m._id === editingMemoId ? updated : m)));
+      toast({ title: "Memo updated.", status: "success" });
+      onMemoEditClose();
+    } catch (err) {
+      console.error("❌ Error updating memo:", err);
+      toast({ title: "Failed to update memo.", status: "error" });
+    } finally {
+      setMemoEditSaving(false);
+    }
+  };
 
   // 🔹 Search API
   const handleSearch = async (query: string) => {
@@ -633,6 +853,93 @@ const [editType, setEditType] = useState<
     }
     setSearchQuery("");
     setSearchResults([]);
+  };
+
+  // 🔹 Recent Activity actions — same behavior as the dedicated
+  // /recent-activity page, embedded here as the admin page's default view.
+  const raHandleView = async (activity: RAActivity) => {
+    setRaViewing(true);
+    onRaViewOpen();
+    try {
+      const res = await axios.get(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/${RA_API_PATH[activity.type]}/${activity.refId}`,
+        { withCredentials: true }
+      );
+      setRaViewDetail(res.data);
+    } catch (err) {
+      console.error("Failed to load record:", err);
+      toast({ title: "Failed to load record details.", status: "error" });
+    } finally {
+      setRaViewing(false);
+    }
+  };
+
+  const raHandleEdit = (activity: RAActivity) => {
+    setActiveTab("company");
+    if (activity.companyId) handleSelectCompany(activity.companyId);
+  };
+
+  const raHandleClose = async (activity: RAActivity) => {
+    if (!csrfToken) return;
+    try {
+      await axios.put(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/recent-activity/${activity._id}/dismiss`,
+        {},
+        { withCredentials: true, headers: { "X-CSRF-Token": csrfToken } }
+      );
+      setRaActivities((prev) => prev.filter((a) => a._id !== activity._id));
+    } catch (err) {
+      console.error("Failed to close activity:", err);
+      toast({ title: "Failed to close entry.", status: "error" });
+    }
+  };
+
+  const raHandleDelete = (activity: RAActivity) => {
+    setRaPendingDelete(activity);
+    onRaDeleteOpen();
+  };
+
+  const raPerformDelete = async () => {
+    if (!raPendingDelete || !csrfToken) return;
+    try {
+      await axios.delete(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/${RA_API_PATH[raPendingDelete.type]}/${raPendingDelete.refId}`,
+        { withCredentials: true, headers: { "X-CSRF-Token": csrfToken } }
+      );
+      setRaActivities((prev) => prev.filter((a) => a._id !== raPendingDelete._id));
+      toast({ title: "Record deleted.", status: "success" });
+    } catch (err) {
+      console.error("Failed to delete record:", err);
+      toast({ title: "Failed to delete record.", status: "error" });
+    } finally {
+      setRaPendingDelete(null);
+      onRaDeleteClose();
+    }
+  };
+
+  const raHandleOpenChat = (activity: RAActivity) => {
+    setRaChatActivity(activity);
+    onRaChatOpen();
+  };
+
+  // 🔹 Clear All — dismisses every currently active Recent Activity entry,
+  // same as "Close" on each, without touching the underlying records.
+  const raHandleClearAll = async () => {
+    if (!csrfToken) return;
+    try {
+      await axios.put(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/recent-activity/dismiss-all`,
+        {},
+        { withCredentials: true, headers: { "X-CSRF-Token": csrfToken } }
+      );
+      setRaActivities([]);
+      toast({ title: "Recent activity cleared.", status: "success" });
+    } catch (err) {
+      console.error("❌ Error clearing recent activity:", err);
+      toast({ title: "Failed to clear recent activity.", status: "error" });
+    } finally {
+      setIsRaClearOpen(false);
+    }
   };
 
   // 🔹 Delete (asks for confirmation first)
@@ -908,73 +1215,409 @@ const handleSaveEdit = async () => {
       {/* 🔹 Header */}
       <HStack justify="space-between" mb={3} flexWrap="wrap" gap={2}>
         <Text fontSize="lg" fontWeight="semibold">
-          Total Compliance Records: {registrations.length}
+          Admin Records: {registrations.length}
         </Text>
-        <Button size="sm" colorScheme="blue" onClick={() => router.push("/recent-activity")}>
+      </HStack>
+
+      {/* 🔹 Record-type buttons — pick which content displays below.
+          Company/Memo are grouped on the left, Recent Activity stays on the
+          right, all three at the same level. */}
+      <HStack justify="space-between" mb={4} flexWrap="wrap" gap={2}>
+        <HStack spacing={2}>
+          <Button
+            size="sm"
+            colorScheme="blue"
+            variant={activeTab === "company" ? "solid" : "outline"}
+            onClick={() => setActiveTab("company")}
+          >
+            Company Records ({registrations.length})
+          </Button>
+          <Button
+            size="sm"
+            colorScheme="pink"
+            variant={activeTab === "memo" ? "solid" : "outline"}
+            onClick={() => setActiveTab("memo")}
+          >
+            Memo Records ({memos.length})
+          </Button>
+        </HStack>
+        <Button
+          size="sm"
+          colorScheme="orange"
+          variant={activeTab === "recent" ? "solid" : "outline"}
+          onClick={() => setActiveTab("recent")}
+        >
           Recent Activity
         </Button>
       </HStack>
 
-      {/* 🔍 Search Bar */}
-      <Box mb={4} position="relative">
-        <Input
-          placeholder="Search company..."
-          size="sm"
-          value={searchQuery}
-          onChange={(e) => handleSearch(e.target.value)}
-        />
-        {searchResults.length > 0 && (
-          <Box
-            position="absolute"
-            bg="white"
-            boxShadow="md"
-            w="100%"
-            zIndex="10"
-            borderRadius="md"
-          >
-            {searchResults.map((c) => (
-              <Box
-                key={c._id}
-                px={4}
-                py={2}
-                _hover={{ bg: "gray.100", cursor: "pointer" }}
-                onClick={() => handleSelectCompany(c._id)}
-              >
-                {c.companyName}
-              </Box>
-            ))}
-          </Box>
-        )}
-      </Box>
-
-      {/* 🔹 Registrations List */}
-      {loading ? (
-        <Spinner />
-      ) : (
-        <VStack align="stretch" gap={2}>
-          {registrations.map((reg) => (
-            <Box
-              key={reg._id}
-              ref={(el) => {
-                companyRefs.current[reg._id] = el;
-              }}
-              p={3}
-              borderWidth="1px"
-              borderRadius="md"
-              onClick={() => handleSelectCompany(reg._id)}
-              _hover={{ bg: "gray.50", cursor: "pointer" }}
+      {activeTab === "company" && (
+        <>
+          <HStack justify="flex-end" mb={2}>
+            <Button
+              size="xs"
+              colorScheme="red"
+              variant="outline"
+              onClick={() => setIsClearOpen(true)}
             >
-              <Text fontWeight="bold" fontSize="sm">
-                {reg.serialNumber ? `${reg.serialNumber} — ` : ""}{reg.companyName}
-              </Text>
-              <Text fontSize="xs">{reg.officerName}</Text>
-              <Text fontSize="xs" color="gray.500">
-                {new Date(reg.createdAt).toLocaleDateString()}
-              </Text>
-            </Box>
-          ))}
-        </VStack>
+              Clear All Records
+            </Button>
+          </HStack>
+
+          {/* 🔍 Search Bar */}
+          <Box mb={4} position="relative">
+            <Input
+              placeholder="Search company..."
+              size="sm"
+              value={searchQuery}
+              onChange={(e) => handleSearch(e.target.value)}
+            />
+            {searchResults.length > 0 && (
+              <Box
+                position="absolute"
+                bg="white"
+                boxShadow="md"
+                w="100%"
+                zIndex="10"
+                borderRadius="md"
+              >
+                {searchResults.map((c) => (
+                  <Box
+                    key={c._id}
+                    px={4}
+                    py={2}
+                    _hover={{ bg: "gray.100", cursor: "pointer" }}
+                    onClick={() => handleSelectCompany(c._id)}
+                  >
+                    {c.companyName}
+                  </Box>
+                ))}
+              </Box>
+            )}
+          </Box>
+
+          {/* 🔹 Registrations List */}
+          {loading ? (
+            <Spinner />
+          ) : (
+            <VStack align="stretch" gap={2}>
+              {registrations.map((reg) => (
+                <Box
+                  key={reg._id}
+                  ref={(el) => {
+                    companyRefs.current[reg._id] = el;
+                  }}
+                  p={3}
+                  borderWidth="1px"
+                  borderRadius="md"
+                  onClick={() => handleSelectCompany(reg._id)}
+                  _hover={{ bg: "gray.50", cursor: "pointer" }}
+                >
+                  <Text fontWeight="bold" fontSize="sm">
+                    {reg.serialNumber ? `${reg.serialNumber} — ` : ""}{reg.companyName}
+                  </Text>
+                  <Text fontSize="xs">{reg.officerName}</Text>
+                  <Text fontSize="xs" color="gray.500">
+                    {new Date(reg.createdAt).toLocaleDateString()}
+                  </Text>
+                </Box>
+              ))}
+            </VStack>
+          )}
+        </>
       )}
+
+      {activeTab === "memo" && (
+        <Box>
+          <HStack justify="flex-end" mb={2}>
+            <Button
+              size="xs"
+              colorScheme="red"
+              variant="outline"
+              onClick={() => setIsMemoClearOpen(true)}
+              isDisabled={memos.length === 0}
+            >
+              Clear All
+            </Button>
+          </HStack>
+          {memos.length === 0 ? (
+            <Text fontSize="xs" color="gray.500">No memos yet.</Text>
+          ) : (
+            <VStack align="stretch" spacing={2}>
+              {memos.map((m) => (
+                <Box key={m._id} borderWidth="1px" borderRadius="md" p={2}>
+                  <Flex justify="space-between" align="center" cursor="pointer" onClick={() => setExpandedMemoId(expandedMemoId === m._id ? null : m._id)}>
+                    <Box>
+                      <Text fontWeight="semibold" fontSize="sm">{m.subject || "Untitled Memo"}</Text>
+                      <Text fontSize="xs" color="gray.500">
+                        Entered by: {m.createdBy || "N/A"} — {new Date(m.createdAt).toLocaleString()}
+                      </Text>
+                    </Box>
+                    <HStack spacing={1}>
+                      <Button
+                        size="xs"
+                        colorScheme="blue"
+                        onClick={(e) => { e.stopPropagation(); handleEditMemo(m); }}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        size="xs"
+                        colorScheme="red"
+                        onClick={(e) => { e.stopPropagation(); handleDeleteMemo(m._id); }}
+                      >
+                        Delete
+                      </Button>
+                    </HStack>
+                  </Flex>
+                  {expandedMemoId === m._id && (
+                    <Box mt={2} pt={2} borderTopWidth="1px" fontSize="sm">
+                      <Text>To: {m.to || "N/A"}</Text>
+                      <Text>Through: {m.through || "N/A"}</Text>
+                      <Text>From: {m.from || "N/A"}</Text>
+                      <Text>Date: {m.date || "N/A"}</Text>
+                      <Text>Ref: {m.refNo || "N/A"}</Text>
+                      <Text whiteSpace="pre-wrap">Message: {m.message || "N/A"}</Text>
+                    </Box>
+                  )}
+                </Box>
+              ))}
+            </VStack>
+          )}
+        </Box>
+      )}
+
+      {activeTab === "recent" && (
+        <Box>
+          <HStack justify="flex-end" mb={2}>
+            <Button
+              size="xs"
+              colorScheme="red"
+              variant="outline"
+              onClick={() => setIsRaClearOpen(true)}
+              isDisabled={raActivities.length === 0}
+            >
+              Clear All
+            </Button>
+          </HStack>
+          <Text fontSize="sm" fontWeight="bold" mb={3}>
+            {raActivities.length} active {raActivities.length === 1 ? "entry" : "entries"}
+          </Text>
+          {raLoading ? (
+            <Spinner />
+          ) : raActivities.length === 0 ? (
+            <Text color="gray.500" fontSize="sm">No new activity.</Text>
+          ) : (
+            <VStack align="stretch" spacing={3}>
+              {raActivities.map((activity) => (
+                <Box key={activity._id} p={3} borderWidth="1px" borderRadius="md">
+                  <HStack justify="space-between" align="start" flexWrap="wrap" gap={2}>
+                    <Box>
+                      <HStack mb={1}>
+                        <Badge colorScheme={RA_TYPE_COLORS[activity.type]}>
+                          {RA_TYPE_LABELS[activity.type]}
+                        </Badge>
+                        <Text fontWeight="semibold" fontSize="sm">{activity.companyName}</Text>
+                      </HStack>
+                      <Text fontSize="sm" color="gray.700">{activity.summary}</Text>
+                      <Text fontSize="xs" color="gray.500">
+                        Entered by: {activity.createdBy || "N/A"} —{" "}
+                        {new Date(activity.createdAt).toLocaleString()}
+                      </Text>
+                    </Box>
+                    <HStack>
+                      {activity.createdBy && activity.createdBy !== user.username && (
+                        <Button size="xs" colorScheme="cyan" onClick={() => raHandleOpenChat(activity)}>
+                          Chat
+                        </Button>
+                      )}
+                      <Button size="xs" colorScheme="gray" onClick={() => raHandleView(activity)}>
+                        View
+                      </Button>
+                      {activity.type !== "memo" && (
+                        <Button size="xs" colorScheme="blue" onClick={() => raHandleEdit(activity)}>
+                          Edit
+                        </Button>
+                      )}
+                      <Button size="xs" colorScheme="red" onClick={() => raHandleDelete(activity)}>
+                        Delete
+                      </Button>
+                      <Button size="xs" variant="outline" onClick={() => raHandleClose(activity)}>
+                        Close
+                      </Button>
+                    </HStack>
+                  </HStack>
+                </Box>
+              ))}
+            </VStack>
+          )}
+        </Box>
+      )}
+
+      {/* 🔹 Recent Activity — View detail modal */}
+      <Modal isOpen={isRaViewOpen} onClose={onRaViewClose} scrollBehavior="inside">
+        <ModalOverlay />
+        <ModalContent mx={4} maxH="80vh">
+          <ModalHeader>Record Details</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody overflowY="auto" pb={6}>
+            {raViewing ? (
+              <Spinner />
+            ) : raViewDetail ? (
+              <VStack align="stretch" spacing={1}>
+                {Object.entries(raViewDetail)
+                  .filter(([key]) => !["__v", "_id"].includes(key))
+                  .map(([key, value]) => (
+                    <Text key={key} fontSize="sm">
+                      <b>{key}:</b> {raFormatDetailValue(key, value)}
+                    </Text>
+                  ))}
+              </VStack>
+            ) : (
+              <Text color="gray.500">No details available.</Text>
+            )}
+          </ModalBody>
+        </ModalContent>
+      </Modal>
+
+      {/* 🔹 Recent Activity — delete confirmation */}
+      <AlertDialog isOpen={isRaDeleteOpen} leastDestructiveRef={raCancelRef} onClose={onRaDeleteClose}>
+        <AlertDialogOverlay>
+          <AlertDialogContent mx={4}>
+            <AlertDialogHeader>Delete this record?</AlertDialogHeader>
+            <AlertDialogBody>
+              This permanently deletes {raPendingDelete ? RA_TYPE_LABELS[raPendingDelete.type] : "the"} record for{" "}
+              {raPendingDelete?.companyName}. This cannot be undone.
+            </AlertDialogBody>
+            <AlertDialogFooter>
+              <Button ref={raCancelRef} onClick={onRaDeleteClose}>Cancel</Button>
+              <Button colorScheme="red" onClick={raPerformDelete} ml={3}>
+                Yes, delete
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialogOverlay>
+      </AlertDialog>
+
+      {/* 🔹 Recent Activity — chat with whoever made this entry */}
+      <Modal isOpen={isRaChatOpen} onClose={onRaChatClose} size="md">
+        <ModalOverlay />
+        <ModalContent mx={4}>
+          <ModalHeader>Chat with {raChatActivity?.createdBy}</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody pb={4}>
+            {raChatActivity && (
+              <ChatThread
+                otherUsername={raChatActivity.createdBy}
+                initialReferencedEntry={{
+                  type: raChatActivity.type,
+                  refId: raChatActivity.refId,
+                  companyId: raChatActivity.companyId,
+                  companyName: raChatActivity.companyName,
+                  summary: raChatActivity.summary,
+                }}
+                onChatDeleted={onRaChatClose}
+              />
+            )}
+          </ModalBody>
+        </ModalContent>
+      </Modal>
+
+      {/* 🔹 Recent Activity — Clear All confirm */}
+      <AlertDialog
+        isOpen={isRaClearOpen}
+        leastDestructiveRef={raClearCancelRef}
+        onClose={() => setIsRaClearOpen(false)}
+      >
+        <AlertDialogOverlay>
+          <AlertDialogContent mx={4}>
+            <AlertDialogHeader>Clear all recent activity?</AlertDialogHeader>
+            <AlertDialogBody>
+              This closes every active entry in the Recent Activity feed. The underlying records are
+              not affected. This cannot be undone.
+            </AlertDialogBody>
+            <AlertDialogFooter>
+              <Button ref={raClearCancelRef} onClick={() => setIsRaClearOpen(false)}>
+                Cancel
+              </Button>
+              <Button colorScheme="red" ml={3} onClick={raHandleClearAll}>
+                Yes, clear all
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialogOverlay>
+      </AlertDialog>
+
+      {/* 🔹 Edit a memo */}
+      <Modal isOpen={isMemoEditOpen} onClose={onMemoEditClose} scrollBehavior="inside">
+        <ModalOverlay />
+        <ModalContent mx={4} maxH="90vh">
+          <ModalHeader>Edit Memo</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody overflowY="auto">
+            <VStack align="stretch" spacing={3}>
+              <FormControl>
+                <FormLabel fontSize="sm">To</FormLabel>
+                <Input size="sm" value={memoEditForm.to} onChange={(e) => setMemoEditForm((f) => ({ ...f, to: e.target.value }))} />
+              </FormControl>
+              <FormControl>
+                <FormLabel fontSize="sm">Through</FormLabel>
+                <Input size="sm" value={memoEditForm.through} onChange={(e) => setMemoEditForm((f) => ({ ...f, through: e.target.value }))} />
+              </FormControl>
+              <FormControl>
+                <FormLabel fontSize="sm">From</FormLabel>
+                <Input size="sm" value={memoEditForm.from} onChange={(e) => setMemoEditForm((f) => ({ ...f, from: e.target.value }))} />
+              </FormControl>
+              <FormControl>
+                <FormLabel fontSize="sm">Date</FormLabel>
+                <Input size="sm" value={memoEditForm.date} onChange={(e) => setMemoEditForm((f) => ({ ...f, date: e.target.value }))} />
+              </FormControl>
+              <FormControl>
+                <FormLabel fontSize="sm">Ref. No.</FormLabel>
+                <Input size="sm" value={memoEditForm.refNo} onChange={(e) => setMemoEditForm((f) => ({ ...f, refNo: e.target.value }))} />
+              </FormControl>
+              <FormControl>
+                <FormLabel fontSize="sm">Subject</FormLabel>
+                <Input size="sm" value={memoEditForm.subject} onChange={(e) => setMemoEditForm((f) => ({ ...f, subject: e.target.value }))} />
+              </FormControl>
+              <FormControl>
+                <FormLabel fontSize="sm">Message</FormLabel>
+                <Textarea size="sm" minH="150px" value={memoEditForm.message} onChange={(e) => setMemoEditForm((f) => ({ ...f, message: e.target.value }))} />
+              </FormControl>
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="outline" mr={3} onClick={onMemoEditClose}>Cancel</Button>
+            <Button colorScheme="blue" onClick={handleSaveMemoEdit} isLoading={memoEditSaving}>
+              Save Changes
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* 🔹 Memo — Clear All confirm */}
+      <AlertDialog
+        isOpen={isMemoClearOpen}
+        leastDestructiveRef={memoClearCancelRef}
+        onClose={() => setIsMemoClearOpen(false)}
+      >
+        <AlertDialogOverlay>
+          <AlertDialogContent mx={4}>
+            <AlertDialogHeader>Clear all memos?</AlertDialogHeader>
+            <AlertDialogBody>
+              This permanently deletes every memo. This cannot be undone.
+            </AlertDialogBody>
+            <AlertDialogFooter>
+              <Button ref={memoClearCancelRef} onClick={() => setIsMemoClearOpen(false)}>
+                Cancel
+              </Button>
+              <Button colorScheme="red" ml={3} onClick={handleClearAllMemos}>
+                Yes, clear all
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialogOverlay>
+      </AlertDialog>
 
       {/* 🔹 Modal */}
       {selectedCompany && (
@@ -2420,18 +3063,6 @@ const handleSaveEdit = async () => {
       )}
 
       
-
-      {/* 🔹 Clear All Button */}
-      <Box textAlign="center" mt={6}>
-        <Button
-          colorScheme="red"
-          variant="outline"
-          size="sm"
-          onClick={() => setIsClearOpen(true)}
-        >
-          Clear All Records
-        </Button>
-      </Box>
 
       {/* 🔹 Single Record Delete Confirm */}
       <AlertDialog

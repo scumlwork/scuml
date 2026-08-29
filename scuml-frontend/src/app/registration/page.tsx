@@ -19,7 +19,6 @@ import {
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
-import { LGA_BY_STATE } from '@/lib/nigeriaLocations';
 import { NATURE_OF_BUSINESS_OPTIONS } from '@/lib/natureOfBusiness';
 import { useAuth } from '@/context/AuthContext';
 
@@ -37,7 +36,6 @@ export default function RegistrationPage() {
     natureOfBusiness: '',
     address: '',
     state: '',
-    city: '',
     modeOfIdentification: '',
     phone: '',
     email: '',
@@ -91,12 +89,6 @@ export default function RegistrationPage() {
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.companyName, duplicateAccepted]);
-
-  // City's options depend on which State is selected — changing State
-  // clears City rather than leaving a now-invalid LGA selected.
-  const handleStateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setFormData({ ...formData, state: e.target.value, city: '' });
-  };
 
   // Uploads the photo gallery without blocking navigation — photos can take a
   // while for real, full-size images, and the record already exists by this point.
@@ -302,27 +294,12 @@ export default function RegistrationPage() {
                 <Select
                   name="state"
                   value={formData.state}
-                  onChange={handleStateChange}
+                  onChange={handleChange}
                   placeholder="Select state"
                 >
                   <option value="Edo">Edo</option>
                   <option value="Delta">Delta</option>
                   <option value="Ondo">Ondo</option>
-                </Select>
-              </FormControl>
-
-              <FormControl isRequired>
-                <FormLabel>City</FormLabel>
-                <Select
-                  name="city"
-                  value={formData.city}
-                  onChange={handleChange}
-                  placeholder={formData.state ? 'Select city' : 'Select a state first'}
-                  isDisabled={!formData.state}
-                >
-                  {(LGA_BY_STATE[formData.state] || []).map((lga) => (
-                    <option key={lga} value={lga}>{lga}</option>
-                  ))}
                 </Select>
               </FormControl>
 

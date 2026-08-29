@@ -15,6 +15,7 @@ import {
   ModalHeader,
   ModalCloseButton,
   ModalBody,
+  ModalFooter,
   useDisclosure,
   AlertDialog,
   AlertDialogOverlay,
@@ -22,6 +23,10 @@ import {
   AlertDialogHeader,
   AlertDialogBody,
   AlertDialogFooter,
+  FormControl,
+  FormLabel,
+  Input,
+  Textarea,
 } from '@chakra-ui/react';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
@@ -29,7 +34,7 @@ import axios from 'axios';
 import { useAuth } from '@/context/AuthContext';
 import ChatThread, { type ReferencedEntry } from '@/components/ChatThread';
 
-type ActivityType = 'identification' | 'action' | 'sanction' | 'violation' | 'training' | 'onsite' | 'offsite' | 'generatedLetter' | 'spotcheck';
+type ActivityType = 'identification' | 'action' | 'sanction' | 'violation' | 'training' | 'onsite' | 'offsite' | 'generatedLetter' | 'spotcheck' | 'memo';
 
 type Activity = {
   _id: string;
@@ -52,6 +57,7 @@ const TYPE_LABELS: Record<ActivityType, string> = {
   offsite: 'Off-Site Inspection',
   generatedLetter: 'Initiated Letter',
   spotcheck: 'Spot Check',
+  memo: 'Memo',
 };
 
 const TYPE_COLORS: Record<ActivityType, string> = {
@@ -64,6 +70,7 @@ const TYPE_COLORS: Record<ActivityType, string> = {
   offsite: 'pink',
   generatedLetter: 'yellow',
   spotcheck: 'cyan',
+  memo: 'pink',
 };
 
 // Each type's own single-record API path, used both to fetch details for
@@ -78,6 +85,7 @@ const API_PATH: Record<ActivityType, string> = {
   offsite: 'offsite-inspections',
   generatedLetter: 'generated-letters',
   spotcheck: 'spot-checks',
+  memo: 'memos',
 };
 
 const DATE_KEYS = new Set(['createdAt', 'updatedAt', 'dateOfReporting']);
@@ -163,6 +171,17 @@ export default function RecentActivityPage() {
   const [chatActivity, setChatActivity] = useState<Activity | null>(null);
   const { isOpen: isChatOpen, onOpen: onChatOpen, onClose: onChatClose } = useDisclosure();
 
+  // 🔹 Memo editing — memos aren't tied to a company, so unlike every other
+  // type they can't be edited by deep-linking into the admin page. Edited
+  // inline here instead.
+  const [editingMemoId, setEditingMemoId] = useState<string | null>(null);
+  const [memoEditForm, setMemoEditForm] = useState({
+    to: '', through: '', from: '', date: '', refNo: '', subject: '', message: '',
+  });
+  const [memoEditLoading, setMemoEditLoading] = useState(false);
+  const [memoEditSaving, setMemoEditSaving] = useState(false);
+  const { isOpen: isMemoEditOpen, onOpen: onMemoEditOpen, onClose: onMemoEditClose } = useDisclosure();
+
   // 🔹 Only a superadmin may view Recent Activity.
   useEffect(() => {
     if (!authLoading && user && user.role !== 'superadmin') {
@@ -222,9 +241,61 @@ export default function RecentActivityPage() {
     }
   };
 
-  const handleEdit = (activity: Activity) => {
+  const handleEdit = async (activity: Activity) => {
+    // Memos aren't tied to a company — edit them inline instead of
+    // deep-linking into the admin page like every other type.
+    if (activity.type === 'memo') {
+      setEditingMemoId(activity.refId);
+      setMemoEditLoading(true);
+      onMemoEditOpen();
+      try {
+        const res = await axios.get(
+          `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/memos/${activity.refId}`,
+          { withCredentials: true }
+        );
+        const m = res.data;
+        setMemoEditForm({
+          to: m.to || '', through: m.through || '', from: m.from || '',
+          date: m.date || '', refNo: m.refNo || '', subject: m.subject || '', message: m.message || '',
+        });
+      } catch (err) {
+        console.error('Failed to load memo:', err);
+        toast({ title: 'Failed to load memo.', status: 'error', duration: 4000, isClosable: true });
+        onMemoEditClose();
+      } finally {
+        setMemoEditLoading(false);
+      }
+      return;
+    }
     // Reuse the admin database page's own edit UI — deep-link to the company.
     router.push(`/database?company=${activity.companyId}`);
+  };
+
+  const handleSaveMemoEdit = async () => {
+    if (!editingMemoId || !csrfToken) return;
+    setMemoEditSaving(true);
+    try {
+      const res = await axios.put(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/memos/${editingMemoId}`,
+        memoEditForm,
+        { withCredentials: true, headers: { 'X-CSRF-Token': csrfToken } }
+      );
+      const updated = res.data;
+      setActivities((prev) =>
+        prev.map((a) =>
+          a.type === 'memo' && a.refId === editingMemoId
+            ? { ...a, createdBy: updated.createdBy, summary: `Memo${updated.subject ? `: ${updated.subject}` : ''} by ${updated.createdBy}` }
+            : a
+        )
+      );
+      toast({ title: 'Memo updated.', status: 'success', duration: 3000, isClosable: true });
+      onMemoEditClose();
+    } catch (err) {
+      console.error('Failed to update memo:', err);
+      toast({ title: 'Failed to update memo.', status: 'error', duration: 4000, isClosable: true });
+    } finally {
+      setMemoEditSaving(false);
+    }
   };
 
   const handleClose = async (activity: Activity) => {
@@ -385,6 +456,91 @@ export default function RecentActivityPage() {
           </AlertDialogContent>
         </AlertDialogOverlay>
       </AlertDialog>
+
+      {/* 🔹 Edit a memo — inline, since it has no company to deep-link into. */}
+      <Modal isOpen={isMemoEditOpen} onClose={onMemoEditClose} scrollBehavior="inside">
+        <ModalOverlay />
+        <ModalContent mx={4} maxH="90vh">
+          <ModalHeader>Edit Memo</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody overflowY="auto">
+            {memoEditLoading ? (
+              <Spinner />
+            ) : (
+              <VStack align="stretch" spacing={3}>
+                <FormControl>
+                  <FormLabel fontSize="sm">To</FormLabel>
+                  <Input
+                    size="sm"
+                    value={memoEditForm.to}
+                    onChange={(e) => setMemoEditForm((f) => ({ ...f, to: e.target.value }))}
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel fontSize="sm">Through</FormLabel>
+                  <Input
+                    size="sm"
+                    value={memoEditForm.through}
+                    onChange={(e) => setMemoEditForm((f) => ({ ...f, through: e.target.value }))}
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel fontSize="sm">From</FormLabel>
+                  <Input
+                    size="sm"
+                    value={memoEditForm.from}
+                    onChange={(e) => setMemoEditForm((f) => ({ ...f, from: e.target.value }))}
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel fontSize="sm">Date</FormLabel>
+                  <Input
+                    size="sm"
+                    value={memoEditForm.date}
+                    onChange={(e) => setMemoEditForm((f) => ({ ...f, date: e.target.value }))}
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel fontSize="sm">Ref. No.</FormLabel>
+                  <Input
+                    size="sm"
+                    value={memoEditForm.refNo}
+                    onChange={(e) => setMemoEditForm((f) => ({ ...f, refNo: e.target.value }))}
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel fontSize="sm">Subject</FormLabel>
+                  <Input
+                    size="sm"
+                    value={memoEditForm.subject}
+                    onChange={(e) => setMemoEditForm((f) => ({ ...f, subject: e.target.value }))}
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel fontSize="sm">Message</FormLabel>
+                  <Textarea
+                    size="sm"
+                    minH="150px"
+                    value={memoEditForm.message}
+                    onChange={(e) => setMemoEditForm((f) => ({ ...f, message: e.target.value }))}
+                  />
+                </FormControl>
+              </VStack>
+            )}
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="outline" mr={3} onClick={onMemoEditClose}>Cancel</Button>
+            <Button
+              colorScheme="blue"
+              onClick={handleSaveMemoEdit}
+              isLoading={memoEditSaving}
+              isDisabled={memoEditLoading}
+            >
+              Save Changes
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
 
       {/* 🔹 Chat with whoever made this entry — the entry itself rides
           along as context on the first message. */}

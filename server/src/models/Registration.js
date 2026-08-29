@@ -19,7 +19,9 @@ const RegistrationSchema = new mongoose.Schema(
     },
     address: { type: String, required: true },
     state: { type: String, enum: ["Edo", "Delta", "Ondo"], required: true },
-    city: { type: String, required: true },
+    // Removed from the Identification form — kept here (optional) only so
+    // existing registrations don't lose their already-recorded value.
+    city: { type: String, default: "" },
     modeOfIdentification: {
       type: String,
       enum: ["Physical", "Online", "Social Media", "Newspaper"],

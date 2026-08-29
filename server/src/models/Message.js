@@ -26,6 +26,7 @@ const MessageSchema = new mongoose.Schema(
           "offsite",
           "generatedLetter",
           "spotcheck",
+          "memo",
         ],
       },
       refId: { type: mongoose.Schema.Types.ObjectId },

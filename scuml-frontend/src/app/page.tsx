@@ -409,7 +409,7 @@ export default function HomePage() {
   const { isOpen, onOpen, onClose } = useDisclosure();
   const { isOpen: isLinksOpen, onOpen: onLinksOpen, onClose: onLinksClose } = useDisclosure();
 
-  // 🔹 Unread message count for the "Messages" sidebar badge — polled
+  // 🔹 Unread message count for the "Minutes" sidebar badge — polled
   // every 10s so it stays current without a WebSocket.
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   useEffect(() => {
@@ -753,6 +753,7 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
 >
   {[
     { label: "Admin", path: "database", superadminOnly: true, ownerOnly: false, guestVisible: false },      // ✅ links to /database
+    { label: "Analysis", path: "analysis", superadminOnly: true, ownerOnly: false, guestVisible: false },
     { label: "Audit Log", path: "audit-log", superadminOnly: true, ownerOnly: true, guestVisible: false },
     { label: "Identification", path: "registration", superadminOnly: false, ownerOnly: false, guestVisible: true }, // ✅ links to /registration
     // Off-Site/On-Site Inspection, Violations, Sanctions Registration,
@@ -760,7 +761,8 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
     // them is already reachable from inside a company's Compliance Record
     // ("Add Actions"), so a separate sidebar button was pure duplication.
     { label: "User", path: "register", superadminOnly: true, ownerOnly: false, guestVisible: false },
-    { label: "Messages", path: "messages", superadminOnly: false, ownerOnly: false, guestVisible: true },
+    { label: "My Memo", path: "memo-drafts", superadminOnly: false, ownerOnly: false, guestVisible: false },
+    { label: "Minutes", path: "messages", superadminOnly: false, ownerOnly: false, guestVisible: true },
   ]
     .filter((item) => !item.superadminOnly || user.role === "superadmin")
     .filter((item) => !item.ownerOnly || user.isOwner)

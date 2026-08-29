@@ -43,6 +43,18 @@ interface Company {
 
 const LETTER_TYPES = ['Letter of Invitation', 'Warning Letter'];
 
+// Addressee titles for the Title field.
+const TITLES = [
+  'THE MANAGING DIRECTOR/CEO',
+  'CHIEF EXECUTIVE OFFICER',
+  'GENERAL MANAGER',
+  'THE EXECUTIVE CHAIRMAN',
+  'THE DIRECTOR GENERAL',
+  'THE DIRECTOR',
+  'CHIEF OPERATING OFFICER',
+  'THE GENERAL OVERSEER',
+];
+
 // "30th July, 2026" — matches the date format used on the printed letter.
 function ordinalSuffix(day: number) {
   if (day > 3 && day < 21) return 'th';
@@ -287,11 +299,15 @@ export default function InitiateLettersPage() {
                 <>
                   <FormControl isRequired>
                     <FormLabel>Title</FormLabel>
-                    <Input
+                    <Select
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
-                      placeholder="e.g. Managing Director/CEO"
-                    />
+                      placeholder="Select title"
+                    >
+                      {TITLES.map((t) => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </Select>
                   </FormControl>
 
                   <FormControl isRequired>

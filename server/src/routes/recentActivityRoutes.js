@@ -19,6 +19,18 @@ router.get("/", async (req, res) => {
   }
 });
 
+// 🔹 "Clear All" — dismisses every currently active entry in one go,
+// same as clicking "Close" on each, without touching the underlying records.
+router.put("/dismiss-all", async (req, res) => {
+  try {
+    await RecentActivity.updateMany({ dismissed: false }, { dismissed: true });
+    res.json({ success: true });
+  } catch (err) {
+    console.error("❌ Error clearing recent activity:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 // 🔹 "Close" an entry — removes it from the feed without touching the
 // underlying record.
 router.put("/:id/dismiss", async (req, res) => {

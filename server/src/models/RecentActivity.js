@@ -8,7 +8,7 @@ const RecentActivitySchema = new mongoose.Schema(
   {
     type: {
       type: String,
-      enum: ["identification", "action", "sanction", "violation", "training", "onsite", "offsite", "generatedLetter", "spotcheck"],
+      enum: ["identification", "action", "sanction", "violation", "training", "onsite", "offsite", "generatedLetter", "spotcheck", "memo"],
       required: true,
     },
     refId: { type: mongoose.Schema.Types.ObjectId, required: true },

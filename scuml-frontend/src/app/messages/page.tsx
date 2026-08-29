@@ -98,7 +98,7 @@ export default function MessagesPage() {
     <Box p={5}>
       <HStack justify="center" spacing={4} mb={6}>
         <Text fontSize="2xl" fontWeight="bold" color="red.500">
-          Messages
+          Minutes
         </Text>
         <Button size="sm" variant="outline" onClick={() => router.push('/')}>
           Back to Home
