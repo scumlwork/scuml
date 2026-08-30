@@ -138,6 +138,17 @@ function formatDetailValue(key: string, value: unknown): string {
       .join('; ');
   }
 
+  // Cited offences on a Violation — offence, fine label, and which category
+  // (Professions/Businesses) it was cited under.
+  if (key === 'selectedViolations' && Array.isArray(value)) {
+    if (value.length === 0) return 'None';
+    return value
+      .map((sv: { sn?: number; offence?: string; label?: string; category?: string }) =>
+        `${sv.sn}. ${sv.offence} — ${sv.label} (${sv.category === 'professions' ? 'Professions' : 'Businesses'})`
+      )
+      .join('; ');
+  }
+
   // Plain array of ids/strings (photos, related-record references) — a
   // count reads better than a wall of ObjectIds.
   if (Array.isArray(value)) {

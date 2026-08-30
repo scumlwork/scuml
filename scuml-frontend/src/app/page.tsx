@@ -91,12 +91,21 @@ type Sanction = {
   receiptUrl?: string;
 };
 
+type SelectedViolation = {
+  sn: number;
+  offence: string;
+  category: 'professions' | 'businesses';
+  amount: number;
+  label: string;
+};
+
 type Violation = {
   _id: string;
   company: string; // company ID
   amountSanctioned: number;
   amountPaid: number;
   payments?: { amount: number; date: string }[];
+  selectedViolations?: SelectedViolation[];
   createdAt?: string;
 };
 
@@ -754,6 +763,7 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
   {[
     { label: "Admin", path: "database", superadminOnly: true, ownerOnly: false, guestVisible: false },      // ✅ links to /database
     { label: "Analysis", path: "analysis", superadminOnly: true, ownerOnly: false, guestVisible: false },
+    { label: "Library", path: "library", superadminOnly: true, ownerOnly: false, guestVisible: false },
     { label: "Audit Log", path: "audit-log", superadminOnly: true, ownerOnly: true, guestVisible: false },
     { label: "Identification", path: "registration", superadminOnly: false, ownerOnly: false, guestVisible: true }, // ✅ links to /registration
     // Off-Site/On-Site Inspection, Violations, Sanctions Registration,
@@ -1233,7 +1243,19 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
       violationCards(violation).map((card, idx) => (
         <Box key={`${violation._id}-${idx}`} p={2} borderWidth="1px" borderRadius="md" mb={2}>
           {card.isFirst && (
-            <Text><b>Amount Sanctioned:</b> ₦{violation.amountSanctioned?.toLocaleString()}</Text>
+            <>
+              {violation.selectedViolations && violation.selectedViolations.length > 0 && (
+                <Box mb={1}>
+                  <Text fontWeight="bold" fontSize="sm">Offences Cited:</Text>
+                  {violation.selectedViolations.map((sv, i) => (
+                    <Text key={i} fontSize="xs">
+                      {sv.sn}. {sv.offence} — {sv.label} ({sv.category === 'professions' ? 'Professions' : 'Businesses'})
+                    </Text>
+                  ))}
+                </Box>
+              )}
+              <Text><b>Amount Sanctioned:</b> ₦{violation.amountSanctioned?.toLocaleString()}</Text>
+            </>
           )}
           {card.payment && (
             <Text><b>Payment:</b> ₦{card.payment.amount.toLocaleString()}</Text>

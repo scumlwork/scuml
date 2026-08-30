@@ -73,11 +73,20 @@ interface Sanction {
   createdBy: string;
 }
 
+interface SelectedViolation {
+  sn: number;
+  offence: string;
+  category: "professions" | "businesses";
+  amount: number;
+  label: string;
+}
+
 interface Violation {
   _id: string;
   amountSanctioned: number;
   amountPaid: number;
   payments?: { amount: number; date: string; enteredBy?: string }[];
+  selectedViolations?: SelectedViolation[];
   createdBy: string;
   createdAt?: string;
 }
@@ -336,6 +345,14 @@ function raFormatDetailValue(key: string, value: unknown): string {
   if (key === 'company' && typeof value === 'object' && value !== null && 'companyName' in value) {
     const c = value as { companyName?: string; natureOfBusiness?: string };
     return `${c.companyName || 'N/A'}${c.natureOfBusiness ? ` (${c.natureOfBusiness})` : ''}`;
+  }
+  if (key === 'selectedViolations' && Array.isArray(value)) {
+    if (value.length === 0) return 'None';
+    return value
+      .map((sv: { sn?: number; offence?: string; label?: string; category?: string }) =>
+        `${sv.sn}. ${sv.offence} — ${sv.label} (${sv.category === 'professions' ? 'Professions' : 'Businesses'})`
+      )
+      .join('; ');
   }
   if (Array.isArray(value)) {
     if (value.length === 0) return 'None';
@@ -1914,7 +1931,19 @@ const handleSaveEdit = async () => {
                         >
                           <Box>
                             {card.isFirst && (
-                              <Text>Amount Sanctioned: ₦{v.amountSanctioned.toLocaleString()}</Text>
+                              <>
+                                {v.selectedViolations && v.selectedViolations.length > 0 && (
+                                  <Box mb={1}>
+                                    <Text fontWeight="bold" fontSize="sm">Offences Cited:</Text>
+                                    {v.selectedViolations.map((sv, i) => (
+                                      <Text key={i} fontSize="xs">
+                                        {sv.sn}. {sv.offence} — {sv.label} ({sv.category === "professions" ? "Professions" : "Businesses"})
+                                      </Text>
+                                    ))}
+                                  </Box>
+                                )}
+                                <Text>Amount Sanctioned: ₦{v.amountSanctioned.toLocaleString()}</Text>
+                              </>
                             )}
                             {card.payment && (
                               <Text>Payment: ₦{card.payment.amount.toLocaleString()}</Text>

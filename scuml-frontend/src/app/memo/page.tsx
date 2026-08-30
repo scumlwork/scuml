@@ -270,7 +270,7 @@ function GeneratedMemo({
               left="50%"
               transform="translate(-50%, -50%) rotate(-35deg)"
               transformOrigin="center"
-              fontSize="5xl"
+              fontSize="7xl"
               fontWeight="bold"
               color="red.400"
               opacity={0.18}
@@ -293,7 +293,7 @@ function GeneratedMemo({
             <Text fontWeight="bold" fontSize="lg" textAlign="center">
               ECONOMIC AND FINANCIAL CRIMES COMMISSION
             </Text>
-            <Text fontStyle="italic" color="red.600" fontWeight="bold" textAlign="center">
+            <Text fontStyle="italic" color="red.600" fontWeight="bold" fontSize="xl" textAlign="center">
               Special Control Unit against Money Laundering
             </Text>
             <Text fontWeight="bold" fontStyle="italic" textAlign="center">

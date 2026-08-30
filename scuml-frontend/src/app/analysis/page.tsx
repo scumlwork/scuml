@@ -178,7 +178,7 @@ export default function AnalysisPage() {
 
           {/* 🔹 User work rate */}
           <Box bg="white" borderRadius="xl" boxShadow="lg" p={{ base: 4, md: 6 }}>
-            <Text fontSize="lg" fontWeight="bold" mb={1}>User Work Rate</Text>
+            <Text fontSize="lg" fontWeight="bold" mb={1}>Key Performance Indicator (KPI)</Text>
             <Text fontSize="xs" color="gray.500" mb={4}>
               Every user, ranked by total entries submitted. 🏆 marks whoever leads that specific period.
             </Text>

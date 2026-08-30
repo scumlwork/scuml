@@ -17,7 +17,7 @@ router.post("/", requireAuth, async (req, res) => {
     const username = req.session?.user?.username;
     if (!username) return res.status(401).json({ error: "Unauthorized" });
 
-    const { company, amountSanctioned, amountPaid } = req.body;
+    const { company, amountSanctioned, amountPaid, selectedViolations } = req.body;
 
     // Ensure company exists
     const existingCompany = await Registration.findById(company);
@@ -32,6 +32,7 @@ router.post("/", requireAuth, async (req, res) => {
       amountSanctioned,
       amountPaid,
       payments: amountPaid > 0 ? [{ amount: amountPaid, date: new Date(), enteredBy: username }] : [],
+      selectedViolations: Array.isArray(selectedViolations) ? selectedViolations : [],
       createdBy: username,
     });
 
@@ -97,6 +98,33 @@ router.get("/search", requireAuth, async (req, res) => {
   } catch (err) {
     console.error("❌ Error in violations search:", err);
     res.status(500).json({ error: "Search failed" });
+  }
+});
+
+// 🔹 Add more cited offences to an existing (still-open) violation —
+// appends to selectedViolations and increases amountSanctioned by the sum
+// of the newly-added fines, instead of creating a separate violation row
+// for the same company.
+router.put("/:id/add-violations", requireAuth, async (req, res) => {
+  try {
+    const { selectedViolations } = req.body;
+    if (!Array.isArray(selectedViolations) || selectedViolations.length === 0) {
+      return res.status(400).json({ error: "Select at least one violation" });
+    }
+
+    const violation = await Violation.findById(req.params.id);
+    if (!violation) return res.status(404).json({ error: "Violation not found" });
+
+    const addedTotal = selectedViolations.reduce((sum, v) => sum + (Number(v.amount) || 0), 0);
+
+    violation.selectedViolations.push(...selectedViolations);
+    violation.amountSanctioned += addedTotal;
+    await violation.save();
+
+    res.json(violation);
+  } catch (err) {
+    console.error("❌ Error adding violations:", err);
+    res.status(500).json({ error: "Server error" });
   }
 });
 

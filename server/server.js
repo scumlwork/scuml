@@ -36,6 +36,7 @@ import spotCheckRoutes from "./src/routes/spotCheckRoutes.js";
 import memoRoutes from "./src/routes/memoRoutes.js";
 import maintenanceRoutes from "./src/routes/maintenanceRoutes.js";
 import analysisRoutes from "./src/routes/analysisRoutes.js";
+import libraryRoutes from "./src/routes/libraryRoutes.js";
 import sanitizeInput from "./src/middleware/sanitize.js";
 
 
@@ -220,6 +221,7 @@ app.use("/api/messages", userSession, messageRoutes);
 app.use("/api/spot-checks", userSession, spotCheckRoutes);
 app.use("/api/memos", userSession, memoRoutes);
 app.use("/api/analysis", userSession, analysisRoutes);
+app.use("/api/library", userSession, libraryRoutes);
 
 // ✅ Admin routes now gated by superadmin role (userSession) since TOTP is disabled
 app.use("/api/admin", userSession, adminRoutes);
