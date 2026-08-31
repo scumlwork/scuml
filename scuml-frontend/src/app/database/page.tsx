@@ -39,8 +39,6 @@ import {
   Th,
   Td,
   Badge,
-  FormControl,
-  FormLabel,
 } from "@chakra-ui/react";
 
 import { useRouter, useSearchParams } from "next/navigation";
@@ -554,14 +552,6 @@ export default function DatabasePage() {
   const [isMemoClearOpen, setIsMemoClearOpen] = useState(false);
   const memoClearCancelRef = useRef<HTMLButtonElement | null>(null);
 
-  // 🔹 Memo editing
-  const [editingMemoId, setEditingMemoId] = useState<string | null>(null);
-  const [memoEditForm, setMemoEditForm] = useState({
-    to: "", through: "", from: "", date: "", refNo: "", subject: "", message: "",
-  });
-  const [memoEditSaving, setMemoEditSaving] = useState(false);
-  const { isOpen: isMemoEditOpen, onOpen: onMemoEditOpen, onClose: onMemoEditClose } = useDisclosure();
-
   // CSRF token state
   const [csrfToken, setCsrfToken] = useState<string | null>(null);
 
@@ -804,36 +794,11 @@ const [editType, setEditType] = useState<
     }
   };
 
-  // 🔹 Edit a memo — memos aren't tied to a company, so this is its own
-  // inline form rather than the shared per-company edit machinery.
+  // 🔹 Edit a memo — memos aren't tied to a company, so editing one takes
+  // you to the same page that creates a memo, in edit mode; saving there
+  // also regenerates the letter with the updated content.
   const handleEditMemo = (memo: MemoRecord) => {
-    setEditingMemoId(memo._id);
-    setMemoEditForm({
-      to: memo.to || "", through: memo.through || "", from: memo.from || "",
-      date: memo.date || "", refNo: memo.refNo || "", subject: memo.subject || "", message: memo.message || "",
-    });
-    onMemoEditOpen();
-  };
-
-  const handleSaveMemoEdit = async () => {
-    if (!editingMemoId) return;
-    setMemoEditSaving(true);
-    try {
-      const res = await axios.put(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/memos/${editingMemoId}`,
-        memoEditForm,
-        headersWithCsrf()
-      );
-      const updated = res.data as MemoRecord;
-      setMemos((prev) => prev.map((m) => (m._id === editingMemoId ? updated : m)));
-      toast({ title: "Memo updated.", status: "success" });
-      onMemoEditClose();
-    } catch (err) {
-      console.error("❌ Error updating memo:", err);
-      toast({ title: "Failed to update memo.", status: "error" });
-    } finally {
-      setMemoEditSaving(false);
-    }
+    router.push(`/memo?id=${memo._id}`);
   };
 
   // 🔹 Search API
@@ -1564,53 +1529,6 @@ const handleSaveEdit = async () => {
           </AlertDialogContent>
         </AlertDialogOverlay>
       </AlertDialog>
-
-      {/* 🔹 Edit a memo */}
-      <Modal isOpen={isMemoEditOpen} onClose={onMemoEditClose} scrollBehavior="inside">
-        <ModalOverlay />
-        <ModalContent mx={4} maxH="90vh">
-          <ModalHeader>Edit Memo</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody overflowY="auto">
-            <VStack align="stretch" spacing={3}>
-              <FormControl>
-                <FormLabel fontSize="sm">To</FormLabel>
-                <Input size="sm" value={memoEditForm.to} onChange={(e) => setMemoEditForm((f) => ({ ...f, to: e.target.value }))} />
-              </FormControl>
-              <FormControl>
-                <FormLabel fontSize="sm">Through</FormLabel>
-                <Input size="sm" value={memoEditForm.through} onChange={(e) => setMemoEditForm((f) => ({ ...f, through: e.target.value }))} />
-              </FormControl>
-              <FormControl>
-                <FormLabel fontSize="sm">From</FormLabel>
-                <Input size="sm" value={memoEditForm.from} onChange={(e) => setMemoEditForm((f) => ({ ...f, from: e.target.value }))} />
-              </FormControl>
-              <FormControl>
-                <FormLabel fontSize="sm">Date</FormLabel>
-                <Input size="sm" value={memoEditForm.date} onChange={(e) => setMemoEditForm((f) => ({ ...f, date: e.target.value }))} />
-              </FormControl>
-              <FormControl>
-                <FormLabel fontSize="sm">Ref. No.</FormLabel>
-                <Input size="sm" value={memoEditForm.refNo} onChange={(e) => setMemoEditForm((f) => ({ ...f, refNo: e.target.value }))} />
-              </FormControl>
-              <FormControl>
-                <FormLabel fontSize="sm">Subject</FormLabel>
-                <Input size="sm" value={memoEditForm.subject} onChange={(e) => setMemoEditForm((f) => ({ ...f, subject: e.target.value }))} />
-              </FormControl>
-              <FormControl>
-                <FormLabel fontSize="sm">Message</FormLabel>
-                <Textarea size="sm" minH="150px" value={memoEditForm.message} onChange={(e) => setMemoEditForm((f) => ({ ...f, message: e.target.value }))} />
-              </FormControl>
-            </VStack>
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="outline" mr={3} onClick={onMemoEditClose}>Cancel</Button>
-            <Button colorScheme="blue" onClick={handleSaveMemoEdit} isLoading={memoEditSaving}>
-              Save Changes
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
 
       {/* 🔹 Memo — Clear All confirm */}
       <AlertDialog

@@ -16,11 +16,12 @@ import {
   VStack,
   IconButton,
   Image,
+  Spinner,
   useToast,
 } from '@chakra-ui/react';
 import { ArrowBackIcon } from '@chakra-ui/icons';
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import axios from 'axios';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -49,7 +50,9 @@ const SIGNATURE_SRC = '/IBRAHIM_signature.png';
 
 export default function MyMemoPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, loading: authLoading } = useAuth();
+  const editId = searchParams.get('id');
 
   // 🔹 Staff and superadmin may use My Memo (not guest).
   useEffect(() => {
@@ -65,10 +68,40 @@ export default function MyMemoPage() {
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [generated, setGenerated] = useState(false);
-  const [todayStr] = useState(() => formatOrdinalDate(new Date()));
+  const [todayStr, setTodayStr] = useState(() => formatOrdinalDate(new Date()));
+  const [loadingExisting, setLoadingExisting] = useState(!!editId);
+
+  // Editing an existing memo — prefill the form (including its original
+  // date, not today's) from the saved record.
+  useEffect(() => {
+    if (!editId) return;
+    const fetchExisting = async () => {
+      try {
+        const res = await axios.get(
+          `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/memos/${editId}`,
+          { withCredentials: true }
+        );
+        const m = res.data;
+        setTo(m.to || '');
+        setThrough(m.through || '');
+        setFrom(m.from || '');
+        setRefNo(m.refNo || '');
+        setSubject(m.subject || '');
+        setMessage(m.message || '');
+        if (m.date) setTodayStr(m.date);
+      } catch (err) {
+        console.error('Failed to load memo for editing:', err);
+      } finally {
+        setLoadingExisting(false);
+      }
+    };
+    fetchExisting();
+  }, [editId]);
 
   // Records the memo so it shows up on the home page, the Admin page, and
-  // Recent Activity, same as every other record type.
+  // Recent Activity, same as every other record type. Editing an existing
+  // memo updates it in place and regenerates the letter with the new
+  // content, instead of creating a separate record.
   const handleGenerate = async () => {
     setGenerated(true);
     try {
@@ -76,17 +109,34 @@ export default function MyMemoPage() {
         `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/csrf-token`,
         { withCredentials: true }
       );
-      await axios.post(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/memos`,
-        { to, through, from, date: todayStr, refNo, subject, message },
-        { withCredentials: true, headers: { 'X-CSRF-Token': csrfRes.data.csrfToken } }
-      );
+      const payload = { to, through, from, date: todayStr, refNo, subject, message };
+      if (editId) {
+        await axios.put(
+          `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/memos/${editId}`,
+          payload,
+          { withCredentials: true, headers: { 'X-CSRF-Token': csrfRes.data.csrfToken } }
+        );
+      } else {
+        await axios.post(
+          `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/memos`,
+          payload,
+          { withCredentials: true, headers: { 'X-CSRF-Token': csrfRes.data.csrfToken } }
+        );
+      }
     } catch (err) {
       console.error('Failed to record memo:', err);
     }
   };
 
   if (user?.role === 'guest') return null;
+
+  if (loadingExisting) {
+    return (
+      <Box h="100vh" display="flex" alignItems="center" justifyContent="center">
+        <Spinner size="xl" />
+      </Box>
+    );
+  }
 
   if (generated) {
     return (
@@ -115,7 +165,7 @@ export default function MyMemoPage() {
               variant="ghost"
             />
             <Heading size="lg" flex="1" textAlign="center" color="red.500" mr={10}>
-              My Memo
+              {editId ? 'Edit Memo' : 'My Memo'}
             </Heading>
           </HStack>
 
@@ -161,7 +211,7 @@ export default function MyMemoPage() {
             </FormControl>
 
             <Button colorScheme="red" size="lg" onClick={handleGenerate}>
-              Generate Memo
+              {editId ? 'Update & Generate Memo' : 'Generate Memo'}
             </Button>
           </VStack>
         </CardBody>
