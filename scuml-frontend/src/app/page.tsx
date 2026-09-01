@@ -772,7 +772,7 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
     // them is already reachable from inside a company's Compliance Record
     // ("Add Actions"), so a separate sidebar button was pure duplication.
     { label: "User", path: "register", superadminOnly: true, ownerOnly: false, guestVisible: false },
-    { label: "Memo/Reply", path: "memo-drafts", superadminOnly: false, ownerOnly: false, guestVisible: false },
+    { label: "Correspondence", path: "memo-drafts", superadminOnly: false, ownerOnly: false, guestVisible: false },
     { label: "Minutes", path: "messages", superadminOnly: false, ownerOnly: false, guestVisible: true },
   ]
     .filter((item) => !item.superadminOnly || user.role === "superadmin")
