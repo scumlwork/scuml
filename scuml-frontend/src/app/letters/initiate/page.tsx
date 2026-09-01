@@ -16,6 +16,7 @@ import {
   VStack,
   IconButton,
   Image,
+  Spinner,
   useToast,
   Menu,
   MenuButton,
@@ -106,14 +107,16 @@ export default function InitiateLettersPage() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
 
-  // Same access as the rest of Actions — superadmin only.
+  // Staff and superadmin may initiate letters (not guest).
   useEffect(() => {
-    if (user && user.role !== 'superadmin') router.replace('/');
+    if (user && user.role === 'guest') router.replace('/');
   }, [user, router]);
 
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<{ _id: string; companyName: string }[]>([]);
   const [company, setCompany] = useState<Company | null>(null);
+  const editId = searchParams.get('id');
+  const [loadingExisting, setLoadingExisting] = useState(!!editId);
 
   // Arriving from a company's own record (e.g. the Company Compliance
   // Record modal) skips the search step — the company is already known.
@@ -140,6 +143,35 @@ export default function InitiateLettersPage() {
   const [reportingDate, setReportingDate] = useState('');
   const [generated, setGenerated] = useState(false);
   const [todayStr] = useState(() => formatOrdinalDate(new Date()));
+
+  // Editing an existing generated-letter record — prefill from the saved
+  // record (and its company) rather than starting from a search.
+  useEffect(() => {
+    if (!editId) return;
+    (async () => {
+      try {
+        const res = await axios.get(
+          `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/generated-letters/${editId}`,
+          { withCredentials: true }
+        );
+        const record = res.data;
+        const companyId = record.company?._id || record.company;
+        const companyRes = await axios.get(
+          `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/registrations/${companyId}`,
+          { withCredentials: true }
+        );
+        setCompany(companyRes.data);
+        setQuery(companyRes.data.companyName);
+        setLetterType(record.letterType || '');
+        setTitle(record.title || '');
+        setReportingDate(record.reportingDate || '');
+      } catch (err) {
+        console.error('Failed to load letter for editing:', err);
+      } finally {
+        setLoadingExisting(false);
+      }
+    })();
+  }, [editId]);
 
   useEffect(() => {
     if (query.length < 2) {
@@ -199,11 +231,19 @@ export default function InitiateLettersPage() {
         `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/csrf-token`,
         { withCredentials: true }
       );
-      await axios.post(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/generated-letters`,
-        { companyId: company._id, letterType, title, reportingDate, refNumber },
-        { withCredentials: true, headers: { 'X-CSRF-Token': csrfRes.data.csrfToken } }
-      );
+      if (editId) {
+        await axios.put(
+          `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/generated-letters/${editId}`,
+          { letterType, title, reportingDate, refNumber },
+          { withCredentials: true, headers: { 'X-CSRF-Token': csrfRes.data.csrfToken } }
+        );
+      } else {
+        await axios.post(
+          `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/generated-letters`,
+          { companyId: company._id, letterType, title, reportingDate, refNumber },
+          { withCredentials: true, headers: { 'X-CSRF-Token': csrfRes.data.csrfToken } }
+        );
+      }
     } catch (err) {
       console.error('Failed to record generated letter:', err);
     } finally {
@@ -216,6 +256,14 @@ export default function InitiateLettersPage() {
       }
     }
   };
+
+  if (loadingExisting) {
+    return (
+      <Box h="100vh" display="flex" alignItems="center" justifyContent="center">
+        <Spinner size="xl" />
+      </Box>
+    );
+  }
 
   if (generated && company) {
     return (
@@ -239,17 +287,19 @@ export default function InitiateLettersPage() {
               aria-label="Back to Actions"
               icon={<ArrowBackIcon />}
               onClick={() => {
-                const companyId = searchParams.get('company');
+                const companyId = editId ? company?._id : searchParams.get('company');
                 router.push(companyId ? `/?company=${companyId}` : '/letters');
               }}
               variant="ghost"
             />
             <Heading size="lg" flex="1" textAlign="center" color="red.500" mr={10}>
-              Initiate Letters
+              {editId ? 'Edit Letter' : 'Initiate Letters'}
             </Heading>
           </HStack>
 
-          {/* Company search */}
+          {/* Company search — skipped when editing an existing letter,
+              since the company it belongs to isn't changeable here. */}
+          {!editId && (
           <Box mb={6} position="relative">
             <FormControl>
               <FormLabel>Search Company</FormLabel>
@@ -279,6 +329,7 @@ export default function InitiateLettersPage() {
               </Box>
             )}
           </Box>
+          )}
 
           {company && (
             <VStack spacing={5} align="stretch">
@@ -340,7 +391,7 @@ export default function InitiateLettersPage() {
                     isDisabled={!canGenerate}
                     onClick={handleGenerate}
                   >
-                    Generate Letter
+                    {editId ? 'Update & Generate Letter' : 'Generate Letter'}
                   </Button>
                 </>
               )}

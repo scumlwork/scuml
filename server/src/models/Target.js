@@ -8,7 +8,7 @@ import mongoose from "mongoose";
 
 const SECTION_TYPES = [
   "identification", "action", "sanction", "violation", "training",
-  "onsite", "offsite", "generatedLetter", "spotcheck", "memo",
+  "onsite", "offsite", "generatedLetter", "spotcheck", "memo", "reply",
 ];
 
 const TargetSchema = new mongoose.Schema(

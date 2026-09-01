@@ -3,7 +3,7 @@ import express from "express";
 import multer from "multer";
 import Registration from "../models/Registration.js";
 import Letter from "../models/Letter.js";
-import { requireAuth, requireSuperadmin } from "../middleware/auth.js";
+import { requireSuperadmin, requireStaffOrAbove } from "../middleware/auth.js";
 import { escapeRegex, omitProtectedFields } from "../utils/sanitizeHelpers.js";
 import { scanBuffer } from "../utils/malwareScan.js";
 import { uploadBufferToCloudinary } from "../utils/cloudinaryUpload.js";
@@ -13,9 +13,10 @@ import { sendMail } from "../config/mailer.js";
 
 const router = express.Router();
 
-// Actions (Letters) is superadmin-only — not visible or usable by staff or
-// guest accounts.
-router.use(requireSuperadmin);
+// Actions (Letters) — the old contacts-based feature — stays superadmin
+// only, applied per-route below. The two "Initiate Letters" support routes
+// (upload-letter-pdf, send-letter-email) are staff-accessible instead,
+// since Initiate Letters itself now is.
 
 // 🔹 Optional photo gallery — buffered in memory so each file can be
 // malware-scanned before it's stored.
@@ -39,7 +40,7 @@ const uploadLetterPdf = multer({
 
 // 🔹 Host a generated letter PDF on Cloudinary so it can be shared as a real
 // document link (via WhatsApp/Gmail) instead of just plain text.
-router.post("/upload-letter-pdf", requireAuth, uploadLetterPdf.single("pdf"), async (req, res) => {
+router.post("/upload-letter-pdf", requireStaffOrAbove, uploadLetterPdf.single("pdf"), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
@@ -72,7 +73,7 @@ router.post("/upload-letter-pdf", requireAuth, uploadLetterPdf.single("pdf"), as
 // unlike the Gmail compose deep link, this actually sends the mail, so the
 // recipient's address is taken from the company's own registration record
 // (never trusted from the client) to avoid this becoming an open relay.
-router.post("/send-letter-email", requireAuth, uploadLetterPdf.single("pdf"), async (req, res) => {
+router.post("/send-letter-email", requireStaffOrAbove, uploadLetterPdf.single("pdf"), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
@@ -114,7 +115,7 @@ router.post("/send-letter-email", requireAuth, uploadLetterPdf.single("pdf"), as
 });
 
 // 🔹 Add a new letter to a company
-router.post("/", requireAuth, async (req, res) => {
+router.post("/", requireSuperadmin, async (req, res) => {
   try {
     // ensure session user exists
     const username = req.session?.user?.username;
@@ -187,7 +188,7 @@ router.post("/", requireAuth, async (req, res) => {
 });
 
 // 🔹 Upload an optional photo gallery for a letter/action
-router.post("/:id/photos", requireAuth, uploadPhotos.array("photos", 15), async (req, res) => {
+router.post("/:id/photos", requireSuperadmin, uploadPhotos.array("photos", 15), async (req, res) => {
   try {
     const files = req.files || [];
     if (files.length === 0) {
@@ -227,7 +228,7 @@ router.post("/:id/photos", requireAuth, uploadPhotos.array("photos", 15), async 
 });
 
 // 🔎 Search companies by prefix
-router.get("/search", requireAuth, async (req, res) => {
+router.get("/search", requireSuperadmin, async (req, res) => {
   try {
     const query = req.query.query || "";
     if (!query) return res.json([]);
@@ -244,7 +245,7 @@ router.get("/search", requireAuth, async (req, res) => {
 });
 
 // 🔹 Get single letter
-router.get("/:id", requireAuth, async (req, res) => {
+router.get("/:id", requireSuperadmin, async (req, res) => {
   try {
     const letter = await Letter.findById(req.params.id).populate(
       "company",
@@ -261,7 +262,7 @@ router.get("/:id", requireAuth, async (req, res) => {
 });
 
 // 🔹 Edit letter by ID
-router.put("/:id", requireAuth, async (req, res) => {
+router.put("/:id", requireSuperadmin, async (req, res) => {
   try {
     const update = omitProtectedFields(req.body);
 
@@ -294,7 +295,7 @@ router.put("/:id", requireAuth, async (req, res) => {
 });
 
 // 🔹 Delete letter by ID
-router.delete("/:id", requireAuth, async (req, res) => {
+router.delete("/:id", requireSuperadmin, async (req, res) => {
   try {
     const letter = await Letter.findByIdAndDelete(req.params.id);
 

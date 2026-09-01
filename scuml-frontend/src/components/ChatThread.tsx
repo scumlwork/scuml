@@ -33,7 +33,8 @@ export type ReferencedEntry = {
     | 'offsite'
     | 'generatedLetter'
     | 'spotcheck'
-    | 'memo';
+    | 'memo'
+    | 'reply';
   refId?: string;
   companyId?: string;
   companyName?: string;
@@ -61,6 +62,7 @@ const TYPE_LABELS: Record<ReferencedEntry['type'], string> = {
   generatedLetter: 'Initiated Letter',
   spotcheck: 'Spot Check',
   memo: 'Memo',
+  reply: 'Reply',
 };
 
 // Shared chat UI — used inside the Messages page (every role) and the

@@ -34,7 +34,7 @@ import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { useAuth } from '@/context/AuthContext';
 
-type SectionType = 'identification' | 'action' | 'sanction' | 'violation' | 'training' | 'onsite' | 'offsite' | 'generatedLetter' | 'spotcheck' | 'memo';
+type SectionType = 'identification' | 'action' | 'sanction' | 'violation' | 'training' | 'onsite' | 'offsite' | 'generatedLetter' | 'spotcheck' | 'memo' | 'reply';
 type Period = 'day' | 'week' | 'month' | 'year' | 'allTime';
 
 type SectionTally = Record<SectionType, number>;
@@ -93,11 +93,12 @@ const SECTION_LABELS: Record<SectionType, string> = {
   generatedLetter: 'Initiated Letter',
   spotcheck: 'Spot Check',
   memo: 'Memo',
+  reply: 'Reply',
 };
 
 const SECTION_ORDER: SectionType[] = [
   'identification', 'action', 'sanction', 'violation', 'training',
-  'onsite', 'offsite', 'generatedLetter', 'spotcheck', 'memo',
+  'onsite', 'offsite', 'generatedLetter', 'spotcheck', 'memo', 'reply',
 ];
 
 const PERIOD_LABELS: Record<Period, string> = {

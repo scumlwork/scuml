@@ -29,7 +29,7 @@ import axios from 'axios';
 import { useAuth } from '@/context/AuthContext';
 import ChatThread, { type ReferencedEntry } from '@/components/ChatThread';
 
-type ActivityType = 'identification' | 'action' | 'sanction' | 'violation' | 'training' | 'onsite' | 'offsite' | 'generatedLetter' | 'spotcheck' | 'memo';
+type ActivityType = 'identification' | 'action' | 'sanction' | 'violation' | 'training' | 'onsite' | 'offsite' | 'generatedLetter' | 'spotcheck' | 'memo' | 'reply';
 
 type Activity = {
   _id: string;
@@ -53,6 +53,7 @@ const TYPE_LABELS: Record<ActivityType, string> = {
   generatedLetter: 'Initiated Letter',
   spotcheck: 'Spot Check',
   memo: 'Memo',
+  reply: 'Reply',
 };
 
 const TYPE_COLORS: Record<ActivityType, string> = {
@@ -66,6 +67,7 @@ const TYPE_COLORS: Record<ActivityType, string> = {
   generatedLetter: 'yellow',
   spotcheck: 'cyan',
   memo: 'pink',
+  reply: 'teal',
 };
 
 // Each type's own single-record API path, used both to fetch details for
@@ -81,6 +83,7 @@ const API_PATH: Record<ActivityType, string> = {
   generatedLetter: 'generated-letters',
   spotcheck: 'spot-checks',
   memo: 'memos',
+  reply: 'replies',
 };
 
 const DATE_KEYS = new Set(['createdAt', 'updatedAt', 'dateOfReporting']);
@@ -237,11 +240,20 @@ export default function RecentActivityPage() {
   };
 
   const handleEdit = (activity: Activity) => {
-    // Memos aren't tied to a company — editing one takes you to the same
-    // page that creates a memo, in edit mode, so saving also regenerates
-    // the letter with the updated content.
+    // Memos, replies, and initiated letters all regenerate their document
+    // on save — editing any of them takes you to the same page that
+    // creates it, in edit mode, instead of the plain field-editor the
+    // other record types use.
     if (activity.type === 'memo') {
       router.push(`/memo?id=${activity.refId}`);
+      return;
+    }
+    if (activity.type === 'reply') {
+      router.push(`/reply?id=${activity.refId}`);
+      return;
+    }
+    if (activity.type === 'generatedLetter') {
+      router.push(`/letters/initiate?id=${activity.refId}`);
       return;
     }
     // Reuse the admin database page's own edit UI — deep-link to the company.

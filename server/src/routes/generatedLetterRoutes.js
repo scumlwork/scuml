@@ -7,13 +7,13 @@
 import express from "express";
 import GeneratedLetter from "../models/GeneratedLetter.js";
 import Registration from "../models/Registration.js";
-import { requireSuperadmin } from "../middleware/auth.js";
+import { requireStaffOrAbove } from "../middleware/auth.js";
 import { recordRecentActivity, clearRecentActivityFor } from "../utils/recentActivity.js";
 
 const router = express.Router();
 
-// Initiate Letters is superadmin-only, so every route here is too.
-router.use(requireSuperadmin);
+// Initiate Letters is available to staff and superadmin (not guest).
+router.use(requireStaffOrAbove);
 
 // 🔹 Record a newly-generated letter
 router.post("/", async (req, res) => {
@@ -64,6 +64,26 @@ router.get("/:id", async (req, res) => {
     res.json(record);
   } catch (err) {
     console.error("❌ Error fetching generated letter:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// 🔹 Edit a generated-letter record — whoever edits it becomes its new
+// "Entered by" (generatedBy), same convention as every other editable
+// record. The company itself isn't editable here, only the letter's own
+// fields.
+router.put("/:id", async (req, res) => {
+  try {
+    const { letterType, title, reportingDate, refNumber } = req.body;
+    const updated = await GeneratedLetter.findByIdAndUpdate(
+      req.params.id,
+      { letterType, title, reportingDate, refNumber, generatedBy: req.session.user.username },
+      { new: true, runValidators: true }
+    );
+    if (!updated) return res.status(404).json({ error: "Not found" });
+    res.json(updated);
+  } catch (err) {
+    console.error("❌ Error updating generated letter:", err);
     res.status(500).json({ error: "Server error" });
   }
 });

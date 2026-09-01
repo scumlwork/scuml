@@ -39,6 +39,7 @@ export default function RegistrationPage() {
     modeOfIdentification: '',
     phone: '',
     email: '',
+    website: '',
   });
   const [photos, setPhotos] = useState<FileList | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -337,6 +338,17 @@ export default function RegistrationPage() {
                   value={formData.email}
                   onChange={handleChange}
                   placeholder="Enter email address"
+                />
+              </FormControl>
+
+              <FormControl>
+                <FormLabel>Website</FormLabel>
+                <Input
+                  type="text"
+                  name="website"
+                  value={formData.website}
+                  onChange={handleChange}
+                  placeholder="Enter website (e.g. www.example.com)"
                 />
               </FormControl>
 

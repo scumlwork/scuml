@@ -29,6 +29,7 @@ const RegistrationSchema = new mongoose.Schema(
     },
     phone: { type: String, default: "" },
     email: { type: String, default: "" },
+    website: { type: String, default: "" },
 
     // Optional photo gallery — stored but never rendered in any view
     photos: { type: [String], default: [] },

@@ -34,6 +34,7 @@ import generatedLetterRoutes from "./src/routes/generatedLetterRoutes.js";
 import messageRoutes from "./src/routes/messageRoutes.js";
 import spotCheckRoutes from "./src/routes/spotCheckRoutes.js";
 import memoRoutes from "./src/routes/memoRoutes.js";
+import replyRoutes from "./src/routes/replyRoutes.js";
 import maintenanceRoutes from "./src/routes/maintenanceRoutes.js";
 import analysisRoutes from "./src/routes/analysisRoutes.js";
 import libraryRoutes from "./src/routes/libraryRoutes.js";
@@ -220,6 +221,7 @@ app.use("/api/generated-letters", userSession, generatedLetterRoutes);
 app.use("/api/messages", userSession, messageRoutes);
 app.use("/api/spot-checks", userSession, spotCheckRoutes);
 app.use("/api/memos", userSession, memoRoutes);
+app.use("/api/replies", userSession, replyRoutes);
 app.use("/api/analysis", userSession, analysisRoutes);
 app.use("/api/library", userSession, libraryRoutes);
 

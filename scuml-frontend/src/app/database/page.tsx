@@ -282,9 +282,22 @@ interface MemoRecord {
   createdAt: string;
 }
 
+interface ReplyRecord {
+  _id: string;
+  title?: string;
+  refNo?: string;
+  date?: string;
+  address?: string;
+  to?: string;
+  subject?: string;
+  message?: string;
+  createdBy: string;
+  createdAt: string;
+}
+
 // 🔹 Recent Activity — shown first when the admin page opens, same feed as
 // the dedicated /recent-activity page.
-type RAActivityType = 'identification' | 'action' | 'sanction' | 'violation' | 'training' | 'onsite' | 'offsite' | 'generatedLetter' | 'spotcheck' | 'memo';
+type RAActivityType = 'identification' | 'action' | 'sanction' | 'violation' | 'training' | 'onsite' | 'offsite' | 'generatedLetter' | 'spotcheck' | 'memo' | 'reply';
 
 type RAActivity = {
   _id: string;
@@ -308,6 +321,7 @@ const RA_TYPE_LABELS: Record<RAActivityType, string> = {
   generatedLetter: 'Initiated Letter',
   spotcheck: 'Spot Check',
   memo: 'Memo',
+  reply: 'Reply',
 };
 
 const RA_TYPE_COLORS: Record<RAActivityType, string> = {
@@ -321,6 +335,7 @@ const RA_TYPE_COLORS: Record<RAActivityType, string> = {
   generatedLetter: 'yellow',
   spotcheck: 'cyan',
   memo: 'pink',
+  reply: 'teal',
 };
 
 // Each type's own single-record API path, used both to fetch details for
@@ -336,6 +351,7 @@ const RA_API_PATH: Record<RAActivityType, string> = {
   generatedLetter: 'generated-letters',
   spotcheck: 'spot-checks',
   memo: 'memos',
+  reply: 'replies',
 };
 
 function raFormatDetailValue(key: string, value: unknown): string {
@@ -375,6 +391,7 @@ interface Registration {
   city?: string;
   email: string;
   phone: string;
+  website?: string;
   photos?: string[];
   createdBy: string;
   createdAt: string;
@@ -527,6 +544,8 @@ export default function DatabasePage() {
   const [loading, setLoading] = useState(true);
   const [memos, setMemos] = useState<MemoRecord[]>([]);
   const [expandedMemoId, setExpandedMemoId] = useState<string | null>(null);
+  const [replies, setReplies] = useState<ReplyRecord[]>([]);
+  const [expandedReplyId, setExpandedReplyId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<
     Pick<Registration, "_id" | "companyName">[]
@@ -534,7 +553,7 @@ export default function DatabasePage() {
   const [selectedCompany, setSelectedCompany] = useState<Registration | null>(
     null
   );
-  const [activeTab, setActiveTab] = useState<"recent" | "company" | "memo">("recent");
+  const [activeTab, setActiveTab] = useState<"recent" | "company" | "memo" | "reply">("recent");
 
   // 🔹 Recent Activity — the default view when the admin page opens.
   const [raActivities, setRaActivities] = useState<RAActivity[]>([]);
@@ -551,6 +570,8 @@ export default function DatabasePage() {
   const raClearCancelRef = useRef<HTMLButtonElement | null>(null);
   const [isMemoClearOpen, setIsMemoClearOpen] = useState(false);
   const memoClearCancelRef = useRef<HTMLButtonElement | null>(null);
+  const [isReplyClearOpen, setIsReplyClearOpen] = useState(false);
+  const replyClearCancelRef = useRef<HTMLButtonElement | null>(null);
 
   // CSRF token state
   const [csrfToken, setCsrfToken] = useState<string | null>(null);
@@ -700,6 +721,23 @@ const [editType, setEditType] = useState<
     fetchMemos();
   }, [isVerified]);
 
+  // 🔹 Fetch all replies — independent of any company, same pattern as memos.
+  useEffect(() => {
+    if (isVerified !== true) return;
+    const fetchReplies = async () => {
+      try {
+        const res = await axios.get<ReplyRecord[]>(
+          `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/replies`,
+          { withCredentials: true }
+        );
+        setReplies(res.data || []);
+      } catch (err) {
+        console.error("❌ Error fetching replies:", err);
+      }
+    };
+    fetchReplies();
+  }, [isVerified]);
+
   // 🔹 Fetch Recent Activity — the default view shown when this page opens.
   const fetchRaActivities = async () => {
     try {
@@ -799,6 +837,44 @@ const [editType, setEditType] = useState<
   // also regenerates the letter with the updated content.
   const handleEditMemo = (memo: MemoRecord) => {
     router.push(`/memo?id=${memo._id}`);
+  };
+
+  // 🔹 Delete a reply — same plain direct-delete pattern as memos.
+  const handleDeleteReply = async (id: string) => {
+    try {
+      await axios.delete(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/replies/${id}`,
+        headersWithCsrf()
+      );
+      setReplies((prev) => prev.filter((r) => r._id !== id));
+      toast({ title: "Reply deleted.", status: "success" });
+    } catch (err) {
+      console.error("❌ Error deleting reply:", err);
+      toast({ title: "Failed to delete reply.", status: "error" });
+    }
+  };
+
+  // 🔹 Clear every reply at once.
+  const handleClearAllReplies = async () => {
+    try {
+      await axios.delete(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/replies/clear-all`,
+        headersWithCsrf()
+      );
+      setReplies([]);
+      toast({ title: "All replies cleared.", status: "warning" });
+    } catch (err) {
+      console.error("❌ Error clearing replies:", err);
+      toast({ title: "Failed to clear replies.", status: "error" });
+    } finally {
+      setIsReplyClearOpen(false);
+    }
+  };
+
+  // 🔹 Edit a reply — same pattern as memos: takes you to the Reply page in
+  // edit mode, where saving regenerates the letter with updated content.
+  const handleEditReply = (reply: ReplyRecord) => {
+    router.push(`/reply?id=${reply._id}`);
   };
 
   // 🔹 Search API
@@ -1153,6 +1229,7 @@ const handleSaveEdit = async () => {
           modeOfIdentification: u.modeOfIdentification,
           phone: u.phone,
           email: u.email,
+          website: u.website,
         };
       }
 
@@ -1221,6 +1298,14 @@ const handleSaveEdit = async () => {
             onClick={() => setActiveTab("memo")}
           >
             Memo Records ({memos.length})
+          </Button>
+          <Button
+            size="sm"
+            colorScheme="teal"
+            variant={activeTab === "reply" ? "solid" : "outline"}
+            onClick={() => setActiveTab("reply")}
+          >
+            Reply Records ({replies.length})
           </Button>
         </HStack>
         <Button
@@ -1369,6 +1454,66 @@ const handleSaveEdit = async () => {
         </Box>
       )}
 
+      {activeTab === "reply" && (
+        <Box>
+          <HStack justify="flex-end" mb={2}>
+            <Button
+              size="xs"
+              colorScheme="red"
+              variant="outline"
+              onClick={() => setIsReplyClearOpen(true)}
+              isDisabled={replies.length === 0}
+            >
+              Clear All
+            </Button>
+          </HStack>
+          {replies.length === 0 ? (
+            <Text fontSize="xs" color="gray.500">No replies yet.</Text>
+          ) : (
+            <VStack align="stretch" spacing={2}>
+              {replies.map((r) => (
+                <Box key={r._id} borderWidth="1px" borderRadius="md" p={2}>
+                  <Flex justify="space-between" align="center" cursor="pointer" onClick={() => setExpandedReplyId(expandedReplyId === r._id ? null : r._id)}>
+                    <Box>
+                      <Text fontWeight="semibold" fontSize="sm">{r.subject || "Untitled Reply"}</Text>
+                      <Text fontSize="xs" color="gray.500">
+                        Entered by: {r.createdBy || "N/A"} — {new Date(r.createdAt).toLocaleString()}
+                      </Text>
+                    </Box>
+                    <HStack spacing={1}>
+                      <Button
+                        size="xs"
+                        colorScheme="blue"
+                        onClick={(e) => { e.stopPropagation(); handleEditReply(r); }}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        size="xs"
+                        colorScheme="red"
+                        onClick={(e) => { e.stopPropagation(); handleDeleteReply(r._id); }}
+                      >
+                        Delete
+                      </Button>
+                    </HStack>
+                  </Flex>
+                  {expandedReplyId === r._id && (
+                    <Box mt={2} pt={2} borderTopWidth="1px" fontSize="sm">
+                      <Text>Title: {r.title || "N/A"}</Text>
+                      <Text>Ref: {r.refNo || "N/A"}</Text>
+                      <Text>Date: {r.date || "N/A"}</Text>
+                      <Text whiteSpace="pre-wrap">Address: {r.address || "N/A"}</Text>
+                      <Text>To: {r.to || "N/A"}</Text>
+                      <Text whiteSpace="pre-wrap">Message: {r.message || "N/A"}</Text>
+                    </Box>
+                  )}
+                </Box>
+              ))}
+            </VStack>
+          )}
+        </Box>
+      )}
+
       {activeTab === "recent" && (
         <Box>
           <HStack justify="flex-end" mb={2}>
@@ -1416,7 +1561,7 @@ const handleSaveEdit = async () => {
                       <Button size="xs" colorScheme="gray" onClick={() => raHandleView(activity)}>
                         View
                       </Button>
-                      {activity.type !== "memo" && (
+                      {activity.type !== "memo" && activity.type !== "reply" && (
                         <Button size="xs" colorScheme="blue" onClick={() => raHandleEdit(activity)}>
                           Edit
                         </Button>
@@ -1554,6 +1699,30 @@ const handleSaveEdit = async () => {
         </AlertDialogOverlay>
       </AlertDialog>
 
+      {/* 🔹 Reply — Clear All confirm */}
+      <AlertDialog
+        isOpen={isReplyClearOpen}
+        leastDestructiveRef={replyClearCancelRef}
+        onClose={() => setIsReplyClearOpen(false)}
+      >
+        <AlertDialogOverlay>
+          <AlertDialogContent mx={4}>
+            <AlertDialogHeader>Clear all replies?</AlertDialogHeader>
+            <AlertDialogBody>
+              This permanently deletes every reply. This cannot be undone.
+            </AlertDialogBody>
+            <AlertDialogFooter>
+              <Button ref={replyClearCancelRef} onClick={() => setIsReplyClearOpen(false)}>
+                Cancel
+              </Button>
+              <Button colorScheme="red" ml={3} onClick={handleClearAllReplies}>
+                Yes, clear all
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialogOverlay>
+      </AlertDialog>
+
       {/* 🔹 Modal */}
       {selectedCompany && (
         <Modal isOpen={isOpen} onClose={onClose} size="4xl">
@@ -1586,6 +1755,7 @@ const handleSaveEdit = async () => {
                   <Text>Mode of Identification: {selectedCompany.modeOfIdentification || "N/A"}</Text>
                   <Text>Phone: {selectedCompany.phone || "N/A"}</Text>
                   <Text>Email: {selectedCompany.email || "N/A"}</Text>
+                  <Text>Website: {selectedCompany.website || "N/A"}</Text>
 
                   {selectedCompany.photos && selectedCompany.photos.length > 0 && (
                     <Link
@@ -1693,6 +1863,13 @@ const handleSaveEdit = async () => {
                           </Text>
                         </Box>
                         <HStack>
+                          <Button
+                            size="xs"
+                            colorScheme="blue"
+                            onClick={() => router.push(`/letters/initiate?id=${gl._id}`)}
+                          >
+                            Edit
+                          </Button>
                           <Button
                             size="xs"
                             colorScheme="red"
@@ -1850,17 +2027,34 @@ const handleSaveEdit = async () => {
                           <Box>
                             {card.isFirst && (
                               <>
-                                {v.selectedViolations && v.selectedViolations.length > 0 && (
-                                  <Box mb={1}>
-                                    <Text fontWeight="bold" fontSize="sm">Offences Cited:</Text>
-                                    {v.selectedViolations.map((sv, i) => (
-                                      <Text key={i} fontSize="xs">
-                                        {sv.sn}. {sv.offence} — {sv.label} ({sv.category === "professions" ? "Professions" : "Businesses"})
-                                      </Text>
-                                    ))}
+                                {v.selectedViolations && v.selectedViolations.length > 0 ? (
+                                  <Box mb={2} overflowX="auto">
+                                    <Table size="sm" variant="simple" borderWidth="1px">
+                                      <Thead>
+                                        <Tr>
+                                          <Th>S/N</Th>
+                                          <Th>Offence</Th>
+                                          <Th isNumeric>Amount</Th>
+                                        </Tr>
+                                      </Thead>
+                                      <Tbody>
+                                        {v.selectedViolations.map((sv, i) => (
+                                          <Tr key={i}>
+                                            <Td verticalAlign="top">{sv.sn}.</Td>
+                                            <Td whiteSpace="normal" minW="220px">{sv.offence}</Td>
+                                            <Td isNumeric whiteSpace="nowrap">₦{sv.amount.toLocaleString()}.00</Td>
+                                          </Tr>
+                                        ))}
+                                        <Tr fontWeight="bold">
+                                          <Td colSpan={2}>TOTAL</Td>
+                                          <Td isNumeric whiteSpace="nowrap">₦{v.amountSanctioned.toLocaleString()}.00</Td>
+                                        </Tr>
+                                      </Tbody>
+                                    </Table>
                                   </Box>
+                                ) : (
+                                  <Text>Amount Sanctioned: ₦{v.amountSanctioned.toLocaleString()}</Text>
                                 )}
-                                <Text>Amount Sanctioned: ₦{v.amountSanctioned.toLocaleString()}</Text>
                               </>
                             )}
                             {card.payment && (
@@ -2329,6 +2523,14 @@ const handleSaveEdit = async () => {
                     value={(editItem as Registration).email || ""}
                     onChange={(e) =>
                       setEditItem({ ...(editItem as Registration), email: e.target.value })
+                    }
+                    mb={2}
+                  />
+                  <Input
+                    placeholder="Website"
+                    value={(editItem as Registration).website || ""}
+                    onChange={(e) =>
+                      setEditItem({ ...(editItem as Registration), website: e.target.value })
                     }
                     mb={2}
                   />
