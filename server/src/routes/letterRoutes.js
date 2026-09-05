@@ -3,7 +3,7 @@ import express from "express";
 import multer from "multer";
 import Registration from "../models/Registration.js";
 import Letter from "../models/Letter.js";
-import { requireSuperadmin, requireStaffOrAbove } from "../middleware/auth.js";
+import { requireSuperadmin } from "../middleware/auth.js";
 import { escapeRegex, omitProtectedFields } from "../utils/sanitizeHelpers.js";
 import { scanBuffer } from "../utils/malwareScan.js";
 import { uploadBufferToCloudinary } from "../utils/cloudinaryUpload.js";
@@ -13,10 +13,9 @@ import { sendMail } from "../config/mailer.js";
 
 const router = express.Router();
 
-// Actions (Letters) — the old contacts-based feature — stays superadmin
-// only, applied per-route below. The two "Initiate Letters" support routes
-// (upload-letter-pdf, send-letter-email) are staff-accessible instead,
-// since Initiate Letters itself now is.
+// Actions (Letters) is superadmin-only — not visible or usable by staff or
+// guest accounts. Initiate Letters is superadmin-only too, so its two
+// support routes below (upload-letter-pdf, send-letter-email) stay that way.
 
 // 🔹 Optional photo gallery — buffered in memory so each file can be
 // malware-scanned before it's stored.
@@ -40,7 +39,7 @@ const uploadLetterPdf = multer({
 
 // 🔹 Host a generated letter PDF on Cloudinary so it can be shared as a real
 // document link (via WhatsApp/Gmail) instead of just plain text.
-router.post("/upload-letter-pdf", requireStaffOrAbove, uploadLetterPdf.single("pdf"), async (req, res) => {
+router.post("/upload-letter-pdf", requireSuperadmin, uploadLetterPdf.single("pdf"), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
@@ -73,7 +72,7 @@ router.post("/upload-letter-pdf", requireStaffOrAbove, uploadLetterPdf.single("p
 // unlike the Gmail compose deep link, this actually sends the mail, so the
 // recipient's address is taken from the company's own registration record
 // (never trusted from the client) to avoid this becoming an open relay.
-router.post("/send-letter-email", requireStaffOrAbove, uploadLetterPdf.single("pdf"), async (req, res) => {
+router.post("/send-letter-email", requireSuperadmin, uploadLetterPdf.single("pdf"), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 

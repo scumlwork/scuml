@@ -33,6 +33,16 @@ const OffSiteInspectionSchema = new mongoose.Schema(
     locations: String,
     products: String,
     recommendation: String,
+
+    // "form" (default) fills in the fields above; "document" instead
+    // attaches a Word/Excel/PDF report, stored on Cloudinary, in place of
+    // the form fields — the two are mutually exclusive per record.
+    mode: { type: String, enum: ["form", "document"], default: "form" },
+    documentUrl: { type: String, default: "" },
+    documentPublicId: { type: String, default: "" },
+    documentOriginalName: { type: String, default: "" },
+    documentFileSize: { type: Number, default: 0 },
+
     createdBy: String,
   },
   { timestamps: true }

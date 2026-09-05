@@ -47,6 +47,7 @@ import { ChevronLeftIcon, ChevronRightIcon } from "@chakra-ui/icons";
 import { LGA_BY_STATE } from "@/lib/nigeriaLocations";
 import { NATURE_OF_BUSINESS_OPTIONS } from "@/lib/natureOfBusiness";
 import ChatThread from "@/components/ChatThread";
+import OffsiteDocumentPanel from "@/components/OffsiteDocumentPanel";
 
 // 🔹 Types
 interface Letter {
@@ -137,6 +138,10 @@ interface Shareholder {
 
 interface OffSiteInspection {
   _id: string;
+  mode?: string;
+  documentUrl?: string;
+  documentOriginalName?: string;
+  documentFileSize?: number;
   examinationDate?: string;
   introduction?: string;
   contact?: string;
@@ -291,6 +296,18 @@ interface ReplyRecord {
   to?: string;
   subject?: string;
   message?: string;
+  createdBy: string;
+  createdAt: string;
+}
+
+interface OffSiteInspectionRecord {
+  _id: string;
+  company?: { _id: string; companyName: string; natureOfBusiness?: string } | string;
+  mode?: string;
+  examinationDate?: string;
+  documentUrl?: string;
+  documentOriginalName?: string;
+  documentFileSize?: number;
   createdBy: string;
   createdAt: string;
 }
@@ -546,6 +563,8 @@ export default function DatabasePage() {
   const [expandedMemoId, setExpandedMemoId] = useState<string | null>(null);
   const [replies, setReplies] = useState<ReplyRecord[]>([]);
   const [expandedReplyId, setExpandedReplyId] = useState<string | null>(null);
+  const [offsiteInspections, setOffsiteInspections] = useState<OffSiteInspectionRecord[]>([]);
+  const [expandedOffsiteId, setExpandedOffsiteId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<
     Pick<Registration, "_id" | "companyName">[]
@@ -553,7 +572,7 @@ export default function DatabasePage() {
   const [selectedCompany, setSelectedCompany] = useState<Registration | null>(
     null
   );
-  const [activeTab, setActiveTab] = useState<"recent" | "company" | "memo" | "reply">("recent");
+  const [activeTab, setActiveTab] = useState<"recent" | "company" | "memo" | "reply" | "offsite">("recent");
 
   // 🔹 Recent Activity — the default view when the admin page opens.
   const [raActivities, setRaActivities] = useState<RAActivity[]>([]);
@@ -736,6 +755,25 @@ const [editType, setEditType] = useState<
       }
     };
     fetchReplies();
+  }, [isVerified]);
+
+  // 🔹 Fetch all Off-Site Inspections — admin-only aggregate view across
+  // every company, so a document-mode record's storage location (Cloudinary
+  // URL) is visible in one place instead of having to open each company.
+  useEffect(() => {
+    if (isVerified !== true) return;
+    const fetchOffsiteInspections = async () => {
+      try {
+        const res = await axios.get<OffSiteInspectionRecord[]>(
+          `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/offsite-inspections`,
+          { withCredentials: true }
+        );
+        setOffsiteInspections(res.data || []);
+      } catch (err) {
+        console.error("❌ Error fetching off-site inspections:", err);
+      }
+    };
+    fetchOffsiteInspections();
   }, [isVerified]);
 
   // 🔹 Fetch Recent Activity — the default view shown when this page opens.
@@ -1307,6 +1345,14 @@ const handleSaveEdit = async () => {
           >
             Reply Records ({replies.length})
           </Button>
+          <Button
+            size="sm"
+            colorScheme="purple"
+            variant={activeTab === "offsite" ? "solid" : "outline"}
+            onClick={() => setActiveTab("offsite")}
+          >
+            Off-Site Records ({offsiteInspections.length})
+          </Button>
         </HStack>
         <Button
           size="sm"
@@ -1514,6 +1560,77 @@ const handleSaveEdit = async () => {
         </Box>
       )}
 
+      {activeTab === "offsite" && (
+        <Box>
+          <Text fontSize="xs" color="gray.500" mb={2}>
+            Every Off-Site Inspection across every company, in one place — for
+            document-mode entries, this shows exactly where the file is
+            stored (its Cloudinary URL), visible only here on the Admin page.
+          </Text>
+          {offsiteInspections.length === 0 ? (
+            <Text fontSize="xs" color="gray.500">No off-site inspections yet.</Text>
+          ) : (
+            <VStack align="stretch" spacing={2}>
+              {offsiteInspections.map((o) => {
+                const companyName =
+                  typeof o.company === "object" && o.company ? o.company.companyName : "N/A";
+                return (
+                  <Box key={o._id} borderWidth="1px" borderRadius="md" p={2}>
+                    <Flex
+                      justify="space-between"
+                      align="center"
+                      cursor="pointer"
+                      onClick={() => setExpandedOffsiteId(expandedOffsiteId === o._id ? null : o._id)}
+                    >
+                      <Box>
+                        <HStack>
+                          <Text fontWeight="semibold" fontSize="sm">{companyName}</Text>
+                          <Box
+                            as="span"
+                            fontSize="0.65em"
+                            fontWeight="bold"
+                            px={2}
+                            py={0.5}
+                            borderRadius="full"
+                            bg={o.mode === "document" ? "purple.100" : "gray.100"}
+                            color={o.mode === "document" ? "purple.700" : "gray.700"}
+                          >
+                            {o.mode === "document" ? "DOCUMENT" : "FORM"}
+                          </Box>
+                        </HStack>
+                        <Text fontSize="xs" color="gray.500">
+                          Entered by: {o.createdBy || "N/A"} — {new Date(o.createdAt).toLocaleString()}
+                        </Text>
+                      </Box>
+                    </Flex>
+                    {expandedOffsiteId === o._id && (
+                      <Box mt={2} pt={2} borderTopWidth="1px" fontSize="sm">
+                        {o.mode === "document" ? (
+                          <OffsiteDocumentPanel
+                            inspectionId={o._id}
+                            documentUrl={o.documentUrl}
+                            documentOriginalName={o.documentOriginalName}
+                            documentFileSize={o.documentFileSize}
+                            showStorageLocation
+                            onReplaced={(updated) =>
+                              setOffsiteInspections((prev) =>
+                                prev.map((entry) => (entry._id === o._id ? { ...entry, ...updated } : entry))
+                              )
+                            }
+                          />
+                        ) : (
+                          <Text>Examination Date: {o.examinationDate || "N/A"}</Text>
+                        )}
+                      </Box>
+                    )}
+                  </Box>
+                );
+              })}
+            </VStack>
+          )}
+        </Box>
+      )}
+
       {activeTab === "recent" && (
         <Box>
           <HStack justify="flex-end" mb={2}>
@@ -1590,6 +1707,17 @@ const handleSaveEdit = async () => {
           <ModalBody overflowY="auto" pb={6}>
             {raViewing ? (
               <Spinner />
+            ) : raViewDetail && raViewDetail.mode === "document" && typeof raViewDetail.documentUrl === "string" ? (
+              <OffsiteDocumentPanel
+                inspectionId={String(raViewDetail._id)}
+                documentUrl={raViewDetail.documentUrl}
+                documentOriginalName={raViewDetail.documentOriginalName as string | undefined}
+                documentFileSize={raViewDetail.documentFileSize as number | undefined}
+                showStorageLocation
+                onReplaced={(updated) =>
+                  setRaViewDetail((prev) => (prev ? { ...prev, ...updated } : prev))
+                }
+              />
             ) : raViewDetail ? (
               <VStack align="stretch" spacing={1}>
                 {Object.entries(raViewDetail)
@@ -2114,97 +2242,121 @@ const handleSaveEdit = async () => {
         borderRadius="md"
       >
         <Box>
-          <InspectionField label="Examination Date" value={insp.examinationDate || "N/A"} />
-          <InspectionField label="Introduction" value={insp.introduction || "N/A"} />
-          <InspectionField label="Contact" value={insp.contact || "N/A"} />
-          <InspectionField label="Office Address" value={insp.officeAddress || "N/A"} />
-          <InspectionField label="Telephone" value={insp.telephone || "N/A"} />
-          <InspectionField label="Sources" value={insp.sources || "N/A"} />
-          <InspectionField label="Compliance Status" value={insp.complianceStatus || "N/A"} />
-          <InspectionField label="RC" value={insp.rc || "N/A"} />
-          <InspectionField label="SCUML" value={insp.scuml || "N/A"} />
-          <InspectionField label="TIN" value={insp.tin || "N/A"} />
-          <InspectionField label="Transaction Reporting" value={insp.transactionReporting || "N/A"} />
+          {insp.mode === "document" ? (
+            <OffsiteDocumentPanel
+              inspectionId={insp._id}
+              documentUrl={insp.documentUrl}
+              documentOriginalName={insp.documentOriginalName}
+              documentFileSize={insp.documentFileSize}
+              onReplaced={(updated) => {
+                const newRegs = registrations.map((r) => {
+                  if (r._id !== selectedCompany?._id) return r;
+                  return {
+                    ...r,
+                    offSiteInspections: r.offSiteInspections.map((i) =>
+                      i._id === insp._id ? { ...i, ...updated } : i
+                    ),
+                  };
+                });
+                setRegistrations(newRegs);
+                setSelectedCompany(newRegs.find((r) => r._id === selectedCompany?._id) || null);
+              }}
+            />
+          ) : (
+            <>
+              <InspectionField label="Examination Date" value={insp.examinationDate || "N/A"} />
+              <InspectionField label="Introduction" value={insp.introduction || "N/A"} />
+              <InspectionField label="Contact" value={insp.contact || "N/A"} />
+              <InspectionField label="Office Address" value={insp.officeAddress || "N/A"} />
+              <InspectionField label="Telephone" value={insp.telephone || "N/A"} />
+              <InspectionField label="Sources" value={insp.sources || "N/A"} />
+              <InspectionField label="Compliance Status" value={insp.complianceStatus || "N/A"} />
+              <InspectionField label="RC" value={insp.rc || "N/A"} />
+              <InspectionField label="SCUML" value={insp.scuml || "N/A"} />
+              <InspectionField label="TIN" value={insp.tin || "N/A"} />
+              <InspectionField label="Transaction Reporting" value={insp.transactionReporting || "N/A"} />
 
-          {/* ✅ Shareholders / Directors */}
-          <Box mt={2} mb={1.5}>
-            <Text fontWeight="bold" mb={2}>Shareholders / Directors</Text>
+              {/* ✅ Shareholders / Directors */}
+              <Box mt={2} mb={1.5}>
+                <Text fontWeight="bold" mb={2}>Shareholders / Directors</Text>
 
-            {Array.isArray(insp.shareholders) && insp.shareholders.length > 0 ? (
-              <Box overflowX="auto"> {/* ✅ make table scrollable */}
-                <Table size="sm" variant="simple">
-                  <Thead>
-                    <Tr>
-                      <Th minW="50px">S/N</Th>
-                      <Th minW={{ base: "200px", md: "250px" }}>Name</Th>
-                      <Th minW="150px">PEP Status</Th>
-                      <Th minW="180px">Non Resident Nigerian</Th>
-                      <Th minW="120px">Foreigner</Th>
-                      <Th minW="120px">SANC. List</Th>
-                    </Tr>
-                  </Thead>
-                  <Tbody>
-                    {insp.shareholders?.map((s: Shareholder, idx: number) => (
-                      <Tr key={idx}>
-                        <Td>{idx + 1}</Td>
-                        <Td>{s.name || "N/A"}</Td>
-                        <Td>{s.pepStatus || "N/A"}</Td>
-                        <Td>{s.nonResident || "N/A"}</Td>
-                        <Td>{s.foreigner || "N/A"}</Td>
-                        <Td>{s.sanctionList || "N/A"}</Td>
-                      </Tr>
-                    ))}
-                  </Tbody>
-                </Table>
+                {Array.isArray(insp.shareholders) && insp.shareholders.length > 0 ? (
+                  <Box overflowX="auto"> {/* ✅ make table scrollable */}
+                    <Table size="sm" variant="simple">
+                      <Thead>
+                        <Tr>
+                          <Th minW="50px">S/N</Th>
+                          <Th minW={{ base: "200px", md: "250px" }}>Name</Th>
+                          <Th minW="150px">PEP Status</Th>
+                          <Th minW="180px">Non Resident Nigerian</Th>
+                          <Th minW="120px">Foreigner</Th>
+                          <Th minW="120px">SANC. List</Th>
+                        </Tr>
+                      </Thead>
+                      <Tbody>
+                        {insp.shareholders?.map((s: Shareholder, idx: number) => (
+                          <Tr key={idx}>
+                            <Td>{idx + 1}</Td>
+                            <Td>{s.name || "N/A"}</Td>
+                            <Td>{s.pepStatus || "N/A"}</Td>
+                            <Td>{s.nonResident || "N/A"}</Td>
+                            <Td>{s.foreigner || "N/A"}</Td>
+                            <Td>{s.sanctionList || "N/A"}</Td>
+                          </Tr>
+                        ))}
+                      </Tbody>
+                    </Table>
+                  </Box>
+                ) : (
+                  <Text>N/A</Text>
+                )}
               </Box>
-            ) : (
-              <Text>N/A</Text>
-            )}
-          </Box>
 
-          {/* ✅ Politically exposed persons */}
-          <InspectionField
-            label="Politically Exposed"
-            value={
-              insp.politicallyExposed && insp.politicallyExposed.trim() !== ""
-                ? insp.politicallyExposed
-                : "N/A"
-            }
-          />
+              {/* ✅ Politically exposed persons */}
+              <InspectionField
+                label="Politically Exposed"
+                value={
+                  insp.politicallyExposed && insp.politicallyExposed.trim() !== ""
+                    ? insp.politicallyExposed
+                    : "N/A"
+                }
+              />
 
-          {/* ✅ Affiliates */}
-          <InspectionField
-            label="Affiliates"
-            value={
-              insp.affiliates && insp.affiliates.trim() !== ""
-                ? insp.affiliates
-                : "N/A"
-            }
-          />
+              {/* ✅ Affiliates */}
+              <InspectionField
+                label="Affiliates"
+                value={
+                  insp.affiliates && insp.affiliates.trim() !== ""
+                    ? insp.affiliates
+                    : "N/A"
+                }
+              />
 
-          <InspectionField label="Legal Issues" value={insp.legalIssues || "N/A"} />
+              <InspectionField label="Legal Issues" value={insp.legalIssues || "N/A"} />
 
-          {/* ✅ Locations */}
-          <InspectionField
-            label="Locations"
-            value={
-              Array.isArray(insp.locations) && insp.locations.length > 0
-                ? insp.locations.join(", ")
-                : insp.locations || "N/A"
-            }
-          />
+              {/* ✅ Locations */}
+              <InspectionField
+                label="Locations"
+                value={
+                  Array.isArray(insp.locations) && insp.locations.length > 0
+                    ? insp.locations.join(", ")
+                    : insp.locations || "N/A"
+                }
+              />
 
-          {/* ✅ Products */}
-          <InspectionField
-            label="Products"
-            value={
-              Array.isArray(insp.products) && insp.products.length > 0
-                ? insp.products.join(", ")
-                : insp.products || "N/A"
-            }
-          />
+              {/* ✅ Products */}
+              <InspectionField
+                label="Products"
+                value={
+                  Array.isArray(insp.products) && insp.products.length > 0
+                    ? insp.products.join(", ")
+                    : insp.products || "N/A"
+                }
+              />
 
-          <InspectionField label="Recommendation" value={insp.recommendation || "N/A"} />
+              <InspectionField label="Recommendation" value={insp.recommendation || "N/A"} />
+            </>
+          )}
 
           <Text fontSize="xs" color="gray.500" mt={2}>
             Entered by: {insp.createdBy || "N/A"}

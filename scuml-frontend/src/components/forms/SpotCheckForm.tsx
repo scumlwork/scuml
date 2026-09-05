@@ -58,6 +58,7 @@ const PARTY_TYPES = ['Individuals', 'Corporate Organizations', 'MDAs', 'Combinat
 export default function SpotCheckForm({ companyId, onSuccess }: CompanyFormProps) {
   const toast = useToast();
   const [submitting, setSubmitting] = useState(false);
+  const [photos, setPhotos] = useState<FileList | null>(null);
 
   const [registrationWithScuml, setRegistrationWithScuml] = useState<YesNoCustom>(emptyYNC());
   const [scumlCertificateDisplay, setScumlCertificateDisplay] = useState<YesNoCustom>(emptyYNC());
@@ -101,6 +102,30 @@ export default function SpotCheckForm({ companyId, onSuccess }: CompanyFormProps
   const [initiateLetter, setInitiateLetter] = useState<YesNoCustom>(emptyYNC());
   const [companySize, setCompanySize] = useState('');
 
+  // Uploads the photo gallery without blocking navigation — photos can take a
+  // while for real, full-size images, and the record already exists by this point.
+  const uploadPhotosInBackground = async (spotCheckId: string, csrfToken: string) => {
+    if (!photos || photos.length === 0) return;
+    try {
+      const photoData = new FormData();
+      Array.from(photos).forEach((file) => photoData.append("photos", file));
+      await axios.post(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/spot-checks/${spotCheckId}/photos`,
+        photoData,
+        { withCredentials: true, headers: { "X-CSRF-Token": csrfToken } }
+      );
+    } catch (photoErr) {
+      console.error("Photo upload failed:", photoErr);
+      toast({
+        title: "Spot Check saved, but photo upload failed.",
+        description: "You can try uploading the photos again later.",
+        status: "warning",
+        duration: 5000,
+        isClosable: true,
+      });
+    }
+  };
+
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
@@ -112,7 +137,7 @@ export default function SpotCheckForm({ companyId, onSuccess }: CompanyFormProps
 
       const toNumber = (v: string) => (v.trim() === '' ? undefined : Number(v));
 
-      await axios.post(
+      const res = await axios.post(
         `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/spot-checks`,
         {
           company: companyId,
@@ -160,6 +185,11 @@ export default function SpotCheckForm({ companyId, onSuccess }: CompanyFormProps
       );
 
       toast({ title: 'Spot Check saved.', status: 'success', duration: 4000, isClosable: true });
+
+      if (photos && photos.length > 0) {
+        uploadPhotosInBackground(res.data._id, csrfToken);
+      }
+
       onSuccess();
     } catch (err) {
       console.error('Failed to save spot check:', err);
@@ -358,6 +388,17 @@ export default function SpotCheckForm({ companyId, onSuccess }: CompanyFormProps
           <option value="Medium">Medium</option>
           <option value="Large">Large</option>
         </Select>
+      </FormControl>
+
+      <FormControl>
+        <FormLabel>Photos</FormLabel>
+        <Input
+          type="file"
+          accept="image/*"
+          multiple
+          p={1}
+          onChange={(e) => setPhotos(e.target.files)}
+        />
       </FormControl>
 
       <Button colorScheme="red" size="lg" alignSelf="flex-start" onClick={handleSubmit} isLoading={submitting}>

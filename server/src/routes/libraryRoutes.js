@@ -9,15 +9,14 @@ import LibraryDocument from "../models/LibraryDocument.js";
 import { requireSuperadmin } from "../middleware/auth.js";
 import { scanBuffer } from "../utils/malwareScan.js";
 import { recordAuditEvent } from "../utils/auditLogger.js";
+import { uploadBufferToCloudinary } from "../utils/cloudinaryUpload.js";
+import cloudinary from "../config/cloudinary.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-// Local disk storage, per explicit request — not Cloudinary. Lives outside
-// src/ so it survives independently of the source tree.
+// Legacy local-disk location — only ever read from now, for documents
+// uploaded before the Cloudinary migration. Every new upload goes straight
+// to Cloudinary instead (see the POST route below).
 const UPLOAD_DIR = path.join(__dirname, "..", "..", "uploads", "library");
-
-async function ensureUploadDir() {
-  await fs.mkdir(UPLOAD_DIR, { recursive: true });
-}
 
 const router = express.Router();
 
@@ -49,14 +48,21 @@ router.post("/", uploadPdf.single("pdf"), async (req, res) => {
       });
     }
 
-    await ensureUploadDir();
-    const storedFilename = `${nanoid()}.pdf`;
-    await fs.writeFile(path.join(UPLOAD_DIR, storedFilename), req.file.buffer);
+    // Cloudinary blocks public delivery of "raw" PDFs by default (security
+    // setting, returns 401) — uploading as "image" instead is the standard
+    // workaround and still serves a real, downloadable PDF at the URL.
+    const uploaded = await uploadBufferToCloudinary(req.file.buffer, {
+      folder: "scuml-library-documents",
+      resource_type: "image",
+      public_id: nanoid(),
+      format: "pdf",
+    });
 
     const doc = await LibraryDocument.create({
       library: library || "",
       title: title || "",
-      filename: storedFilename,
+      url: uploaded.secure_url,
+      publicId: uploaded.public_id,
       originalName: req.file.originalname,
       fileSize: req.file.size,
       createdBy: username,
@@ -88,10 +94,26 @@ router.get("/:id/file", async (req, res) => {
     const doc = await LibraryDocument.findById(req.params.id);
     if (!doc) return res.status(404).json({ error: "Not found" });
 
-    const filePath = path.join(UPLOAD_DIR, doc.filename);
     const disposition = req.query.download ? "attachment" : "inline";
-    const safeName = (doc.originalName || doc.filename).replace(/[^\w.\- ]/g, "_");
+    const safeName = (doc.originalName || doc.filename || "document").replace(/[^\w.\- ]/g, "_");
 
+    // Cloudinary-backed document (every upload since the migration) — fetch
+    // the bytes server-side and re-serve them under our own domain, so the
+    // frontend's existing same-origin fetch (and its Content-Disposition
+    // handling) keeps working unchanged.
+    if (doc.url) {
+      const cloudRes = await fetch(doc.url);
+      if (!cloudRes.ok) {
+        return res.status(502).json({ error: "Failed to fetch document" });
+      }
+      const buffer = Buffer.from(await cloudRes.arrayBuffer());
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `${disposition}; filename="${safeName}"`);
+      return res.send(buffer);
+    }
+
+    // Legacy document uploaded before the Cloudinary migration — still on disk.
+    const filePath = path.join(UPLOAD_DIR, doc.filename);
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `${disposition}; filename="${safeName}"`);
     res.sendFile(filePath, (err) => {
@@ -106,17 +128,26 @@ router.get("/:id/file", async (req, res) => {
   }
 });
 
-// 🔹 Delete a document — removes the DB record and the file on disk.
+// 🔹 Delete a document — removes the DB record and the underlying file
+// (Cloudinary for anything uploaded since the migration, disk for legacy docs).
 router.delete("/:id", async (req, res) => {
   try {
     const doc = await LibraryDocument.findByIdAndDelete(req.params.id);
     if (!doc) return res.status(404).json({ error: "Not found" });
 
-    try {
-      await fs.unlink(path.join(UPLOAD_DIR, doc.filename));
-    } catch (err) {
-      // File already missing on disk shouldn't block the DB delete.
-      console.warn("⚠️ Could not remove library file from disk:", err.message);
+    if (doc.publicId) {
+      try {
+        await cloudinary.uploader.destroy(doc.publicId, { resource_type: "image" });
+      } catch (err) {
+        console.warn("⚠️ Could not remove library file from Cloudinary:", err.message);
+      }
+    } else if (doc.filename) {
+      try {
+        await fs.unlink(path.join(UPLOAD_DIR, doc.filename));
+      } catch (err) {
+        // File already missing on disk shouldn't block the DB delete.
+        console.warn("⚠️ Could not remove library file from disk:", err.message);
+      }
     }
 
     res.json({ message: "Document deleted" });

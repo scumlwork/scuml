@@ -107,9 +107,9 @@ export default function InitiateLettersPage() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
 
-  // Staff and superadmin may initiate letters (not guest).
+  // Same access as the rest of Actions — superadmin only.
   useEffect(() => {
-    if (user && user.role === 'guest') router.replace('/');
+    if (user && user.role !== 'superadmin') router.replace('/');
   }, [user, router]);
 
   const [query, setQuery] = useState('');

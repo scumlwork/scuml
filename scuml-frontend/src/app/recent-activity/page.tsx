@@ -28,6 +28,7 @@ import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { useAuth } from '@/context/AuthContext';
 import ChatThread, { type ReferencedEntry } from '@/components/ChatThread';
+import OffsiteDocumentPanel from '@/components/OffsiteDocumentPanel';
 
 type ActivityType = 'identification' | 'action' | 'sanction' | 'violation' | 'training' | 'onsite' | 'offsite' | 'generatedLetter' | 'spotcheck' | 'memo' | 'reply';
 
@@ -383,6 +384,17 @@ export default function RecentActivityPage() {
           <ModalBody overflowY="auto" pb={6}>
             {viewing ? (
               <Spinner />
+            ) : viewDetail && viewDetail.mode === 'document' && typeof viewDetail.documentUrl === 'string' ? (
+              <OffsiteDocumentPanel
+                inspectionId={String(viewDetail._id)}
+                documentUrl={viewDetail.documentUrl}
+                documentOriginalName={viewDetail.documentOriginalName as string | undefined}
+                documentFileSize={viewDetail.documentFileSize as number | undefined}
+                showStorageLocation
+                onReplaced={(updated) =>
+                  setViewDetail((prev) => (prev ? { ...prev, ...updated } : prev))
+                }
+              />
             ) : viewDetail ? (
               <VStack align="stretch" spacing={1}>
                 {Object.entries(viewDetail)

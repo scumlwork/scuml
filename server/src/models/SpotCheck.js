@@ -69,6 +69,10 @@ const SpotCheckSchema = new mongoose.Schema(
       default: "",
     },
 
+    // Moved here from Registration — captured per spot check rather than
+    // once at initial identification.
+    photos: { type: [String], default: [] },
+
     createdBy: { type: String, default: "" },
   },
   { timestamps: true }

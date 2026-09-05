@@ -16,7 +16,7 @@ import {
   Card,
   CardBody,
 } from '@chakra-ui/react';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { NATURE_OF_BUSINESS_OPTIONS } from '@/lib/natureOfBusiness';
@@ -27,7 +27,6 @@ export default function RegistrationPage() {
   const toast = useToast();
   const { user } = useAuth();
   const today = new Date().toISOString().split('T')[0];
-  const photosInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
     officerName: '',
@@ -41,7 +40,6 @@ export default function RegistrationPage() {
     email: '',
     website: '',
   });
-  const [photos, setPhotos] = useState<FileList | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   // Identification Officer defaults to the logged-in user, but stays editable.
@@ -91,33 +89,6 @@ export default function RegistrationPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.companyName, duplicateAccepted]);
 
-  // Uploads the photo gallery without blocking navigation — photos can take a
-  // while for real, full-size images, and the record already exists by this point.
-  const uploadPhotosInBackground = async (registrationId: string, csrfToken: string) => {
-    if (!photos || photos.length === 0) return;
-    try {
-      const photoData = new FormData();
-      Array.from(photos).forEach((file) => photoData.append("photos", file));
-      await axios.post(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/registrations/${registrationId}/photos`,
-        photoData,
-        {
-          withCredentials: true,
-          headers: { "X-CSRF-Token": csrfToken },
-        }
-      );
-    } catch (photoErr) {
-      console.error("Photo upload failed:", photoErr);
-      toast({
-        title: "Registration saved, but photo upload failed.",
-        description: "You can try uploading the photos again later.",
-        status: "warning",
-        duration: 5000,
-        isClosable: true,
-      });
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
   if (submitting) return;
@@ -132,7 +103,7 @@ export default function RegistrationPage() {
     const csrfToken = csrfRes.data.csrfToken;
 
     // 2. Submit form with CSRF header
-    const res = await axios.post(
+    await axios.post(
       `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/registrations`,
       formData,
       {
@@ -148,11 +119,6 @@ export default function RegistrationPage() {
       duration: 4000,
       isClosable: true,
     });
-
-    // 3. Optional photo gallery — fire in the background, don't block navigation
-    if (photos && photos.length > 0) {
-      uploadPhotosInBackground(res.data._id, csrfToken);
-    }
 
     router.push("/"); // redirect to homepage
   } catch (err) {
@@ -349,18 +315,6 @@ export default function RegistrationPage() {
                   value={formData.website}
                   onChange={handleChange}
                   placeholder="Enter website (e.g. www.example.com)"
-                />
-              </FormControl>
-
-              <FormControl>
-                <FormLabel>Photos</FormLabel>
-                <Input
-                  ref={photosInputRef}
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  p={1}
-                  onChange={(e) => setPhotos(e.target.files)}
                 />
               </FormControl>
 

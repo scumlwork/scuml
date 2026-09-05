@@ -7,13 +7,13 @@
 import express from "express";
 import GeneratedLetter from "../models/GeneratedLetter.js";
 import Registration from "../models/Registration.js";
-import { requireStaffOrAbove } from "../middleware/auth.js";
+import { requireSuperadmin } from "../middleware/auth.js";
 import { recordRecentActivity, clearRecentActivityFor } from "../utils/recentActivity.js";
 
 const router = express.Router();
 
-// Initiate Letters is available to staff and superadmin (not guest).
-router.use(requireStaffOrAbove);
+// Initiate Letters is superadmin-only, so every route here is too.
+router.use(requireSuperadmin);
 
 // 🔹 Record a newly-generated letter
 router.post("/", async (req, res) => {
