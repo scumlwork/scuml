@@ -48,6 +48,7 @@ import { LGA_BY_STATE } from "@/lib/nigeriaLocations";
 import { NATURE_OF_BUSINESS_OPTIONS } from "@/lib/natureOfBusiness";
 import ChatThread from "@/components/ChatThread";
 import OffsiteDocumentPanel from "@/components/OffsiteDocumentPanel";
+import ComplianceOfficersList from "@/components/ComplianceOfficersList";
 
 // 🔹 Types
 interface Letter {
@@ -314,7 +315,7 @@ interface OffSiteInspectionRecord {
 
 // 🔹 Recent Activity — shown first when the admin page opens, same feed as
 // the dedicated /recent-activity page.
-type RAActivityType = 'identification' | 'action' | 'sanction' | 'violation' | 'training' | 'onsite' | 'offsite' | 'generatedLetter' | 'spotcheck' | 'memo' | 'reply';
+type RAActivityType = 'identification' | 'action' | 'sanction' | 'violation' | 'training' | 'onsite' | 'offsite' | 'generatedLetter' | 'spotcheck' | 'memo' | 'reply' | 'complianceOfficer' | 'manualEntry';
 
 type RAActivity = {
   _id: string;
@@ -339,6 +340,8 @@ const RA_TYPE_LABELS: Record<RAActivityType, string> = {
   spotcheck: 'Spot Check',
   memo: 'Memo',
   reply: 'Reply',
+  complianceOfficer: 'Compliance Officer',
+  manualEntry: 'Manual Entry',
 };
 
 const RA_TYPE_COLORS: Record<RAActivityType, string> = {
@@ -353,6 +356,8 @@ const RA_TYPE_COLORS: Record<RAActivityType, string> = {
   spotcheck: 'cyan',
   memo: 'pink',
   reply: 'teal',
+  complianceOfficer: 'gray',
+  manualEntry: 'blue',
 };
 
 // Each type's own single-record API path, used both to fetch details for
@@ -369,6 +374,8 @@ const RA_API_PATH: Record<RAActivityType, string> = {
   spotcheck: 'spot-checks',
   memo: 'memos',
   reply: 'replies',
+  complianceOfficer: 'registrations',
+  manualEntry: 'registrations',
 };
 
 function raFormatDetailValue(key: string, value: unknown): string {
@@ -410,6 +417,7 @@ interface Registration {
   phone: string;
   website?: string;
   photos?: string[];
+  complianceOfficers?: { _id?: string; name?: string; position?: string; phone?: string; email?: string }[];
   createdBy: string;
   createdAt: string;
   letters: Letter[];
@@ -1602,6 +1610,19 @@ const handleSaveEdit = async () => {
                           Entered by: {o.createdBy || "N/A"} — {new Date(o.createdAt).toLocaleString()}
                         </Text>
                       </Box>
+                      {o.mode !== "document" && (
+                        <Button
+                          size="xs"
+                          colorScheme="blue"
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(`/inspection-report?type=offsite&id=${o._id}`);
+                          }}
+                        >
+                          Generate Report
+                        </Button>
+                      )}
                     </Flex>
                     {expandedOffsiteId === o._id && (
                       <Box mt={2} pt={2} borderTopWidth="1px" fontSize="sm">
@@ -1678,14 +1699,16 @@ const handleSaveEdit = async () => {
                       <Button size="xs" colorScheme="gray" onClick={() => raHandleView(activity)}>
                         View
                       </Button>
-                      {activity.type !== "memo" && activity.type !== "reply" && (
+                      {activity.type !== "memo" && activity.type !== "reply" && activity.type !== "complianceOfficer" && activity.type !== "manualEntry" && (
                         <Button size="xs" colorScheme="blue" onClick={() => raHandleEdit(activity)}>
                           Edit
                         </Button>
                       )}
-                      <Button size="xs" colorScheme="red" onClick={() => raHandleDelete(activity)}>
-                        Delete
-                      </Button>
+                      {activity.type !== "complianceOfficer" && activity.type !== "manualEntry" && (
+                        <Button size="xs" colorScheme="red" onClick={() => raHandleDelete(activity)}>
+                          Delete
+                        </Button>
+                      )}
                       <Button size="xs" variant="outline" onClick={() => raHandleClose(activity)}>
                         Close
                       </Button>
@@ -1893,6 +1916,23 @@ const handleSaveEdit = async () => {
                     >
                       View Photos ({selectedCompany.photos.length})
                     </Link>
+                  )}
+
+                  {selectedCompany.complianceOfficers && selectedCompany.complianceOfficers.length > 0 && (
+                    <ComplianceOfficersList
+                      companyId={selectedCompany._id}
+                      officers={selectedCompany.complianceOfficers}
+                      canEdit
+                      headingSize="md"
+                      headingColor="gray.700"
+                      onChange={(updated) => {
+                        const newRegs = registrations.map((r) =>
+                          r._id === selectedCompany._id ? { ...r, complianceOfficers: updated } : r
+                        );
+                        setRegistrations(newRegs);
+                        setSelectedCompany(newRegs.find((r) => r._id === selectedCompany._id) || null);
+                      }}
+                    />
                   )}
 
                   <Text fontSize="xs" color="gray.500">
@@ -2363,7 +2403,7 @@ const handleSaveEdit = async () => {
           </Text>
         </Box>
 
-        {/* Action buttons (edit & delete) */}
+        {/* Action buttons (edit, delete & generate report) */}
         <Flex gap={2} mt={2}>
           <Button
             size="sm"
@@ -2379,6 +2419,15 @@ const handleSaveEdit = async () => {
           >
             Delete
           </Button>
+          {insp.mode !== "document" && (
+            <Button
+              size="sm"
+              colorScheme="blue"
+              onClick={() => router.push(`/inspection-report?type=offsite&id=${insp._id}`)}
+            >
+              Generate Report
+            </Button>
+          )}
         </Flex>
       </Flex>
     ))
@@ -2493,6 +2542,13 @@ const handleSaveEdit = async () => {
           onClick={() => handleDelete("onsite", insp._id)}
         >
           Delete
+        </Button>
+        <Button
+          size="sm"
+          colorScheme="blue"
+          onClick={() => router.push(`/inspection-report?type=onsite&id=${insp._id}`)}
+        >
+          Generate Report
         </Button>
         </Flex>
       </Box>

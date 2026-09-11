@@ -18,14 +18,22 @@ import {
   Image,
   Spinner,
   useToast,
+  useDisclosure,
+  AlertDialog,
+  AlertDialogOverlay,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogBody,
+  AlertDialogFooter,
 } from '@chakra-ui/react';
 import { ArrowBackIcon } from '@chakra-ui/icons';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import axios from 'axios';
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 import { useAuth } from '@/context/AuthContext';
+import PrintPortal from '@/components/PrintPortal';
+import PagedA4Document, { type A4Slice, A4_PAGE_HEIGHT_PX, KEEP_TOGETHER_CLASS } from '@/components/PagedA4Document';
 
 // "30th July, 2026" — matches the date format used on every other letter.
 function ordinalSuffix(day: number) {
@@ -52,6 +60,7 @@ export default function MyMemoPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading: authLoading } = useAuth();
+  const toast = useToast();
   const editId = searchParams.get('id');
 
   // 🔹 Staff and superadmin may use My Memo (not guest).
@@ -70,6 +79,12 @@ export default function MyMemoPage() {
   const [generated, setGenerated] = useState(false);
   const [todayStr, setTodayStr] = useState(() => formatOrdinalDate(new Date()));
   const [loadingExisting, setLoadingExisting] = useState(!!editId);
+  const [saving, setSaving] = useState(false);
+
+  // When editing, "Update & Generate Memo" first asks: replace this memo, or
+  // keep it as-is and spin off a new one with the changes?
+  const { isOpen: isEditChoiceOpen, onOpen: openEditChoice, onClose: closeEditChoice } = useDisclosure();
+  const editChoiceCancelRef = useRef<HTMLButtonElement>(null);
 
   // Editing an existing memo — prefill the form (including its original
   // date, not today's) from the saved record.
@@ -99,18 +114,22 @@ export default function MyMemoPage() {
   }, [editId]);
 
   // Records the memo so it shows up on the home page, the Admin page, and
-  // Recent Activity, same as every other record type. Editing an existing
-  // memo updates it in place and regenerates the letter with the new
-  // content, instead of creating a separate record.
-  const handleGenerate = async () => {
-    setGenerated(true);
+  // Recent Activity, same as every other record type.
+  //  • New memo            → POST (creates the record + activity entry)
+  //  • Edit, "update"      → PUT  (replaces this memo in place)
+  //  • Edit, "duplicate"   → POST (leaves the original untouched, saves a
+  //                                 brand-new memo carrying the changes)
+  const saveMemo = async (mode: 'new' | 'update' | 'duplicate') => {
+    const memoDate = mode === 'duplicate' ? formatOrdinalDate(new Date()) : todayStr;
+    if (mode === 'duplicate') setTodayStr(memoDate);
+    setSaving(true);
     try {
       const csrfRes = await axios.get(
         `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/csrf-token`,
         { withCredentials: true }
       );
-      const payload = { to, through, from, date: todayStr, refNo, subject, message };
-      if (editId) {
+      const payload = { to, through, from, date: memoDate, refNo, subject, message };
+      if (mode === 'update' && editId) {
         await axios.put(
           `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/memos/${editId}`,
           payload,
@@ -123,8 +142,24 @@ export default function MyMemoPage() {
           { withCredentials: true, headers: { 'X-CSRF-Token': csrfRes.data.csrfToken } }
         );
       }
+      if (mode === 'duplicate') {
+        toast({ title: 'Original memo kept — a new memo was created with your changes.', status: 'success', duration: 5000, isClosable: true });
+      }
+      setGenerated(true);
     } catch (err) {
       console.error('Failed to record memo:', err);
+      toast({ title: 'Failed to save the memo.', status: 'error', duration: 4000, isClosable: true });
+    } finally {
+      setSaving(false);
+      closeEditChoice();
+    }
+  };
+
+  const handleGenerate = () => {
+    if (editId) {
+      openEditChoice();
+    } else {
+      saveMemo('new');
     }
   };
 
@@ -210,12 +245,47 @@ export default function MyMemoPage() {
               />
             </FormControl>
 
-            <Button colorScheme="red" size="lg" onClick={handleGenerate}>
-              {editId ? 'Update & Generate Memo' : 'Generate Memo'}
+            <Button colorScheme="red" size="lg" onClick={handleGenerate} isLoading={saving}>
+              {editId ? 'Edit & Generate Memo' : 'Generate Memo'}
             </Button>
           </VStack>
         </CardBody>
       </Card>
+
+      <AlertDialog
+        isOpen={isEditChoiceOpen}
+        leastDestructiveRef={editChoiceCancelRef}
+        onClose={closeEditChoice}
+        isCentered
+      >
+        <AlertDialogOverlay>
+          <AlertDialogContent mx={4}>
+            <AlertDialogHeader fontSize="lg" fontWeight="bold">
+              Edit this memo, or save a new copy?
+            </AlertDialogHeader>
+            <AlertDialogBody>
+              <Text mb={2}>
+                <b>Edit &amp; generate</b> replaces this memo with your changes and regenerates it.
+              </Text>
+              <Text>
+                <b>Keep original &amp; save new</b> leaves this memo exactly as it is and creates a
+                separate, duplicated memo that carries your changes.
+              </Text>
+            </AlertDialogBody>
+            <AlertDialogFooter flexWrap="wrap" gap={2}>
+              <Button ref={editChoiceCancelRef} variant="ghost" onClick={closeEditChoice} isDisabled={saving}>
+                Cancel
+              </Button>
+              <Button colorScheme="blue" onClick={() => saveMemo('duplicate')} isLoading={saving}>
+                Keep original &amp; save new
+              </Button>
+              <Button colorScheme="red" onClick={() => saveMemo('update')} isLoading={saving}>
+                Edit &amp; generate
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialogOverlay>
+      </AlertDialog>
     </Container>
   );
 }
@@ -241,23 +311,25 @@ function GeneratedMemo({
 }) {
   const toast = useToast();
   const [downloading, setDownloading] = useState(false);
+  const [slices, setSlices] = useState<A4Slice[]>([]);
 
   const fileName = `Memo_${(subject || 'Untitled').replace(/\s+/g, '_')}.pdf`;
+  const contentKey = `${refNo}|${subject}|${message}`;
 
-  const buildPdfBlob = async () => {
-    const page = document.querySelector<HTMLElement>('.memo-page');
-    if (!page) throw new Error('Memo page not found');
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    const canvas = await html2canvas(page, { scale: 2, useCORS: true });
-    const imgData = canvas.toDataURL('image/jpeg', 0.92);
-    pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297);
-    return pdf.output('blob') as Blob;
-  };
-
+  // The same A4-sliced images shown on screen (see PagedA4Document) go
+  // straight into the PDF — download always matches what's on screen and
+  // what prints, and a long memo now spans as many pages as it needs
+  // instead of getting squeezed into one.
   const handleDownload = async () => {
+    if (slices.length === 0) return;
     setDownloading(true);
     try {
-      const blob = await buildPdfBlob();
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      slices.forEach((s, i) => {
+        if (i > 0) pdf.addPage();
+        pdf.addImage(s.dataUrl, 'JPEG', 0, 0, 210, s.heightMm);
+      });
+      const blob = pdf.output('blob') as Blob;
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -274,136 +346,136 @@ function GeneratedMemo({
     }
   };
 
-  return (
-    <Box bg="gray.100" minH="100vh" py={8}>
-      <style>{`
-        @media print {
-          body * { visibility: hidden; }
-          .print-area, .print-area * { visibility: visible; }
-          .print-area { position: absolute; top: 0; left: 0; width: 100%; }
-          .no-print { display: none !important; }
-          .memo-page { box-shadow: none !important; margin: 0 !important; }
-        }
-        @page { size: A4; margin: 15mm; }
-      `}</style>
-
-      <HStack maxW="900px" mx="auto" mb={4} className="no-print" spacing={2} flexWrap="wrap" justify="center">
-        <Button size="sm" leftIcon={<ArrowBackIcon />} onClick={onBack} variant="outline">
-          Back to Form
-        </Button>
-        <Button size="sm" colorScheme="purple" onClick={handleDownload} isLoading={downloading} loadingText="Preparing…">
-          Download
-        </Button>
-        <Button size="sm" colorScheme="red" onClick={() => window.print()}>Print</Button>
-      </HStack>
-
-      <Box className="print-area" maxW="794px" mx="auto" px={{ base: 3, md: 0 }}>
-        <Box
-          className="memo-page"
-          position="relative"
-          bg="white"
-          shadow="lg"
-          p={{ base: 4, sm: 6, md: '20mm' }}
-          minH="1123px"
-          overflow="hidden"
-          fontFamily="Georgia, serif"
-          color="gray.800"
-          fontSize="sm"
-          lineHeight="1.8"
-        >
-          {/* Background watermark — the "To" field, same diagonal style as
-              the reference memo's own "DIRECTOR SCUML" watermark. */}
-          {to && (
-            <Text
-              position="absolute"
-              top="50%"
-              left="50%"
-              transform="translate(-50%, -50%) rotate(-35deg)"
-              transformOrigin="center"
-              fontSize="7xl"
-              fontWeight="bold"
-              color="red.400"
-              opacity={0.18}
-              whiteSpace="nowrap"
-              zIndex={0}
-              pointerEvents="none"
-              userSelect="none"
-            >
-              {to.toUpperCase()}
-            </Text>
-          )}
-
-          <Box position="relative" zIndex={1} display="flex" flexDirection="column" flex="1" minH="inherit">
-          <Text textAlign="center" fontWeight="bold" fontSize="xs" letterSpacing="wide">
-            RESTRICTED
+  const pageContent = (
+    <Box
+      position="relative"
+      bg="white"
+      p={{ base: 4, sm: 6, md: '20mm' }}
+      fontFamily="Georgia, serif"
+      color="gray.800"
+      fontSize="sm"
+      lineHeight="1.8"
+    >
+      {/* Background watermark — the "To" field, same diagonal style as
+          the reference memo's own "DIRECTOR SCUML" watermark. Anchored to
+          the first A4_PAGE_HEIGHT_PX band only (not centered in the whole,
+          possibly multi-page, flow) so a long memo never splits it across
+          a page boundary — it only ever appears on page 1. */}
+      {to && (
+        <Box position="absolute" top="0" left="0" w="100%" h={`${A4_PAGE_HEIGHT_PX}px`} zIndex={0} pointerEvents="none">
+          <Text
+            position="absolute"
+            top="50%"
+            left="50%"
+            transform="translate(-50%, -50%) rotate(-35deg)"
+            transformOrigin="center"
+            fontSize="7xl"
+            fontWeight="bold"
+            color="red.400"
+            opacity={0.18}
+            whiteSpace="nowrap"
+            userSelect="none"
+          >
+            {to.toUpperCase()}
           </Text>
-
-          <VStack spacing={1} mb={4} mt={2}>
-            <Image src="/scuml-logo.PNG" alt="EFCC" boxSize="90px" />
-            <Text fontWeight="bold" fontSize="lg" textAlign="center">
-              ECONOMIC AND FINANCIAL CRIMES COMMISSION
-            </Text>
-            <Text fontStyle="italic" color="red.600" fontWeight="bold" fontSize="xl" textAlign="center">
-              Special Control Unit against Money Laundering
-            </Text>
-            <Text fontWeight="bold" fontStyle="italic" textAlign="center">
-              INTERNAL MEMORANDUM
-            </Text>
-          </VStack>
-
-          <VStack align="stretch" spacing={1} mb={6}>
-            <HStack align="start">
-              <Text fontWeight="bold" minW="90px">To:</Text>
-              <Text>{to || 'N/A'}</Text>
-            </HStack>
-            <HStack align="start">
-              <Text fontWeight="bold" minW="90px">Through:</Text>
-              <Text>{through || 'N/A'}</Text>
-            </HStack>
-            <HStack align="start">
-              <Text fontWeight="bold" minW="90px">From:</Text>
-              <Text>{from || 'N/A'}</Text>
-            </HStack>
-            <HStack align="start">
-              <Text fontWeight="bold" minW="90px">Date:</Text>
-              <Text>{todayStr}</Text>
-            </HStack>
-            <HStack align="start">
-              <Text fontWeight="bold" minW="90px">Ref.:</Text>
-              <Text>{refNo || 'N/A'}</Text>
-            </HStack>
-            <HStack align="start">
-              <Text fontWeight="bold" minW="90px">Subject:</Text>
-              <Text fontWeight="bold" textDecoration="underline">{subject || 'N/A'}</Text>
-            </HStack>
-          </VStack>
-
-          <Text whiteSpace="pre-wrap" textAlign="justify" mb={8}>
-            {message}
-          </Text>
-
-          <Box mt="auto">
-            <Box mb={4}>
-              <Image
-                src={SIGNATURE_SRC}
-                alt="Signature"
-                maxH="60px"
-                maxW="180px"
-                objectFit="contain"
-                display="block"
-                ml="-8px"
-                mb={-1}
-              />
-              <Text fontWeight="bold">SE Ibrahim Boyi</Text>
-              <Text>Zonal Coordinator SCUML, Benin</Text>
-            </Box>
-            <Text textAlign="center" fontWeight="bold" fontSize="xs" letterSpacing="wide">
-              RESTRICTED
-            </Text>
-          </Box>
-          </Box>
         </Box>
+      )}
+
+      <Box position="relative" zIndex={1}>
+      <Text textAlign="center" fontWeight="bold" fontSize="xs" letterSpacing="wide">
+        RESTRICTED
+      </Text>
+
+      <VStack spacing={1} mb={4} mt={2} className={KEEP_TOGETHER_CLASS}>
+        <Image src="/scuml-logo.PNG" alt="EFCC" boxSize="90px" />
+        <Text fontWeight="bold" fontSize="lg" textAlign="center">
+          ECONOMIC AND FINANCIAL CRIMES COMMISSION
+        </Text>
+        <Text fontStyle="italic" color="red.600" fontWeight="bold" fontSize="xl" textAlign="center">
+          Special Control Unit against Money Laundering
+        </Text>
+        <Text fontWeight="bold" fontStyle="italic" textAlign="center">
+          INTERNAL MEMORANDUM
+        </Text>
+      </VStack>
+
+      <VStack align="stretch" spacing={1} mb={6} className={KEEP_TOGETHER_CLASS}>
+        <HStack align="start">
+          <Text fontWeight="bold" minW="90px">To:</Text>
+          <Text>{to || 'N/A'}</Text>
+        </HStack>
+        <HStack align="start">
+          <Text fontWeight="bold" minW="90px">Through:</Text>
+          <Text>{through || 'N/A'}</Text>
+        </HStack>
+        <HStack align="start">
+          <Text fontWeight="bold" minW="90px">From:</Text>
+          <Text>{from || 'N/A'}</Text>
+        </HStack>
+        <HStack align="start">
+          <Text fontWeight="bold" minW="90px">Date:</Text>
+          <Text>{todayStr}</Text>
+        </HStack>
+        <HStack align="start">
+          <Text fontWeight="bold" minW="90px">Ref.:</Text>
+          <Text>{refNo || 'N/A'}</Text>
+        </HStack>
+        <HStack align="start">
+          <Text fontWeight="bold" minW="90px">Subject:</Text>
+          <Text fontWeight="bold" textDecoration="underline">{subject || 'N/A'}</Text>
+        </HStack>
+      </VStack>
+
+      <Text whiteSpace="pre-wrap" textAlign="justify" mb={8}>
+        {message}
+      </Text>
+
+      <Box mt={8} className={KEEP_TOGETHER_CLASS}>
+        <Box mb={4}>
+          <Image
+            src={SIGNATURE_SRC}
+            alt="Signature"
+            maxH="60px"
+            maxW="180px"
+            objectFit="contain"
+            display="block"
+            ml="-8px"
+            mb={-1}
+          />
+          <Text fontWeight="bold">SE Ibrahim Boyi</Text>
+          <Text>Zonal Coordinator SCUML, Benin</Text>
+        </Box>
+        <Text textAlign="center" fontWeight="bold" fontSize="xs" letterSpacing="wide">
+          RESTRICTED
+        </Text>
+      </Box>
       </Box>
     </Box>
+  );
+
+  return (
+    <PrintPortal>
+      <Box bg="gray.100" minH="100vh" py={8}>
+        <style>{`
+          @media print {
+            .no-print { display: none !important; }
+            .a4-page { box-shadow: none !important; }
+          }
+          @page { size: A4; margin: 0; }
+        `}</style>
+
+        <HStack maxW="900px" mx="auto" mb={4} className="no-print" spacing={2} flexWrap="wrap" justify="center">
+          <Button size="sm" leftIcon={<ArrowBackIcon />} onClick={onBack} variant="outline">
+            Back to Form
+          </Button>
+          <Button size="sm" colorScheme="purple" onClick={handleDownload} isLoading={downloading} loadingText="Preparing…" isDisabled={slices.length === 0}>
+            Download
+          </Button>
+          <Button size="sm" colorScheme="red" onClick={() => window.print()} isDisabled={slices.length === 0}>Print</Button>
+        </HStack>
+
+        <PagedA4Document pageContent={pageContent} contentKey={contentKey} onSlicesReady={setSlices} />
+      </Box>
+    </PrintPortal>
   );
 }

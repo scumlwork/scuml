@@ -34,6 +34,20 @@ const RegistrationSchema = new mongoose.Schema(
     // Optional photo gallery — stored but never rendered in any view
     photos: { type: [String], default: [] },
 
+    // The company's designated AML/CFT/CPF compliance officer(s) — added
+    // from the "Compliance Officer" button in the Compliance Record.
+    complianceOfficers: {
+      type: [
+        {
+          name: { type: String, default: "" },
+          position: { type: String, default: "" },
+          phone: { type: String, default: "" },
+          email: { type: String, default: "" },
+        },
+      ],
+      default: [],
+    },
+
     // Created-by metadata (not required for now to avoid breaking old docs)
     createdBy: { type: String, default: "" },
 

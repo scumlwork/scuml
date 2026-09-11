@@ -111,6 +111,117 @@ router.post("/:id/photos", requireAuth, uploadPhotos.array("photos", 15), async 
   }
 });
 
+// 🔹 Add one or more compliance officers to a company. Appends to whatever
+// is already on file rather than replacing, so officers added in separate
+// sittings all stick.
+router.post("/:id/compliance-officers", requireAuth, async (req, res) => {
+  try {
+    const officers = Array.isArray(req.body.officers) ? req.body.officers : [];
+    const cleaned = officers
+      .map((o) => ({
+        name: (o.name || "").trim(),
+        position: (o.position || "").trim(),
+        phone: (o.phone || "").trim(),
+        email: (o.email || "").trim(),
+      }))
+      .filter((o) => o.name || o.position || o.phone || o.email);
+
+    if (cleaned.length === 0) {
+      return res.status(400).json({ error: "Add at least one compliance officer" });
+    }
+
+    const registration = await Registration.findByIdAndUpdate(
+      req.params.id,
+      { $push: { complianceOfficers: { $each: cleaned } } },
+      { new: true }
+    );
+
+    if (!registration) return res.status(404).json({ error: "Not found" });
+
+    const names = cleaned
+      .map((o) => (o.position ? `${o.name || "—"} (${o.position})` : o.name || "—"))
+      .join("; ");
+    await recordRecentActivity({
+      type: "complianceOfficer",
+      refId: registration._id,
+      companyId: registration._id,
+      companyName: registration.companyName,
+      summary: `Compliance officer${cleaned.length > 1 ? "s" : ""} added: ${names}`,
+      createdBy: req.session?.user?.username || "",
+    });
+
+    res.status(201).json({ complianceOfficers: registration.complianceOfficers });
+  } catch (err) {
+    console.error("❌ Error adding compliance officers:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// 🔹 Edit one compliance officer on a company.
+router.put("/:id/compliance-officers/:officerId", requireAuth, async (req, res) => {
+  try {
+    const registration = await Registration.findById(req.params.id);
+    if (!registration) return res.status(404).json({ error: "Not found" });
+
+    const officer = registration.complianceOfficers.id(req.params.officerId);
+    if (!officer) return res.status(404).json({ error: "Compliance officer not found" });
+
+    officer.name = (req.body.name || "").trim();
+    officer.position = (req.body.position || "").trim();
+    officer.phone = (req.body.phone || "").trim();
+    officer.email = (req.body.email || "").trim();
+
+    if (!officer.name && !officer.position && !officer.phone && !officer.email) {
+      return res.status(400).json({ error: "A compliance officer needs at least one field" });
+    }
+
+    await registration.save();
+
+    await recordRecentActivity({
+      type: "complianceOfficer",
+      refId: registration._id,
+      companyId: registration._id,
+      companyName: registration.companyName,
+      summary: `Compliance officer updated: ${officer.position ? `${officer.name || "—"} (${officer.position})` : officer.name || "—"}`,
+      createdBy: req.session?.user?.username || "",
+    });
+
+    res.json({ complianceOfficers: registration.complianceOfficers });
+  } catch (err) {
+    console.error("❌ Error updating compliance officer:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// 🔹 Remove one compliance officer from a company.
+router.delete("/:id/compliance-officers/:officerId", requireAuth, async (req, res) => {
+  try {
+    const registration = await Registration.findById(req.params.id);
+    if (!registration) return res.status(404).json({ error: "Not found" });
+
+    const officer = registration.complianceOfficers.id(req.params.officerId);
+    if (!officer) return res.status(404).json({ error: "Compliance officer not found" });
+
+    const label = officer.position ? `${officer.name || "—"} (${officer.position})` : officer.name || "—";
+    officer.deleteOne();
+    await registration.save();
+
+    await recordRecentActivity({
+      type: "complianceOfficer",
+      refId: registration._id,
+      companyId: registration._id,
+      companyName: registration.companyName,
+      summary: `Compliance officer removed: ${label}`,
+      createdBy: req.session?.user?.username || "",
+    });
+
+    res.json({ complianceOfficers: registration.complianceOfficers });
+  } catch (err) {
+    console.error("❌ Error deleting compliance officer:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 // 🔹 Get all registrations (with related data)
 router.get("/", requireAuth, async (req, res) => {
   try {

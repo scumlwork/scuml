@@ -30,6 +30,7 @@ import axios from 'axios';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { useAuth } from '@/context/AuthContext';
+import PrintPortal from '@/components/PrintPortal';
 
 interface Company {
   _id: string;
@@ -531,7 +532,7 @@ function LetterOfInvitationBody({ reportingDateStr }: { reportingDateStr: string
       </Text>
 
       <Text mb={8}>
-        <b>3.</b> Kindly provide copies of the following documents for the examination.
+        <b>3.</b> Kindly provide soft copies (in flash drive) of the following documents for the examination.
       </Text>
 
       <Text mb={8}>i. Corporate Affairs Commission (CAC) Registration documents.</Text>
@@ -554,11 +555,14 @@ function LetterOfInvitationPage2() {
         <Text>vi. Three years Sales Records/ Sales Receipts/Sales Agreements/Contracts Received.</Text>
         <Text>vii. Three years Tax Clearance and VAT Remittance Receipts.</Text>
         <Text>viii. Three years Audited Financial Report.</Text>
-        <Text>xi. License to Operate/Professional Body Membership Certificate.</Text>
+        <Text>ix. License to Operate/Professional Body Membership Certificate.</Text>
         <Text>x. Names and Addresses of your affiliate businesses and partner(s).</Text>
         <Text>
-          xi. Copy of compliance policy documents and evidence of employee training program on
-          Anti – Money Laundering/Counter Financing of Terrorism (AML/CFT).
+          xi. Copy of Anti- Money Laundering / Counter Terrorism Financing Compliance Policy Document.
+        </Text>
+        <Text>
+          xii. Evidence of Anti-Money Laundering/ Counter Terrorism Financing Compliance Training
+          Program conducted for your employees.
         </Text>
       </VStack>
 
@@ -826,14 +830,13 @@ function GeneratedLetter({
   };
 
   return (
+    <PrintPortal>
     <Box bg="gray.100" minH="100vh" py={8}>
       <style>{`
         @media print {
-          body * { visibility: hidden; }
-          .print-area, .print-area * { visibility: visible; }
-          .print-area { position: absolute; top: 0; left: 0; width: 100%; }
           .no-print { display: none !important; }
-          .letter-page { box-shadow: none !important; margin: 0 !important; page-break-after: always; }
+          .letter-page { box-shadow: none !important; margin: 0 !important; break-inside: avoid; page-break-inside: avoid; }
+          .letter-page:not(:last-child) { break-after: page; page-break-after: always; }
         }
         @page { size: A4; margin: 15mm; }
       `}</style>
@@ -876,5 +879,6 @@ function GeneratedLetter({
         </LetterPage>
       </Box>
     </Box>
+    </PrintPortal>
   );
 }

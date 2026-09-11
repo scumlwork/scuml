@@ -26,6 +26,7 @@ import axios from 'axios';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { useAuth } from '@/context/AuthContext';
+import PrintPortal from '@/components/PrintPortal';
 
 // "30th July, 2026" — matches the date format used on every other letter.
 function ordinalSuffix(day: number) {
@@ -336,12 +337,10 @@ function GeneratedReply({
   };
 
   return (
+    <PrintPortal>
     <Box bg="gray.100" minH="100vh" py={8}>
       <style>{`
         @media print {
-          body * { visibility: hidden; }
-          .print-area, .print-area * { visibility: visible; }
-          .print-area { position: absolute; top: 0; left: 0; width: 100%; }
           .no-print { display: none !important; }
           .reply-page { box-shadow: none !important; margin: 0 !important; }
         }
@@ -436,5 +435,6 @@ function GeneratedReply({
         </Box>
       </Box>
     </Box>
+    </PrintPortal>
   );
 }

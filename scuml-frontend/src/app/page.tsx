@@ -46,6 +46,9 @@ import LetterForm from '@/components/forms/LetterForm';
 import SanctionForm from '@/components/forms/SanctionForm';
 import ViolationForm from '@/components/forms/ViolationForm';
 import TrainingForm from '@/components/forms/TrainingForm';
+import ComplianceOfficerForm from '@/components/forms/ComplianceOfficerForm';
+import ComplianceOfficersList from '@/components/ComplianceOfficersList';
+import DiaryOfAction from '@/components/DiaryOfAction';
 import OnSiteInspectionForm from '@/components/forms/OnSiteInspectionForm';
 import OffSiteInspectionForm from '@/components/forms/OffSiteInspectionForm';
 import OffsiteDocumentPanel from '@/components/OffsiteDocumentPanel';
@@ -278,6 +281,7 @@ type Registration = {
   email: string;
   website?: string;
   photos?: string[];
+  complianceOfficers?: { _id?: string; name?: string; position?: string; phone?: string; email?: string }[];
   time?: string;
   createdAt?: string;
   letters?: Letter[];
@@ -629,7 +633,7 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
 
   // 🔹 Inline "add a record" panel inside the Company Compliance Record modal
   const [addRecordType, setAddRecordType] = useState<
-    'letter' | 'sanction' | 'violation' | 'training' | 'onsite' | 'offsite' | 'spotcheck' | null
+    'letter' | 'sanction' | 'violation' | 'training' | 'onsite' | 'offsite' | 'spotcheck' | 'complianceOfficer' | 'diary' | null
   >(null);
   const addActionsFormRef = useRef<HTMLDivElement>(null);
 
@@ -1126,6 +1130,27 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
                     >
                       View Photos ({selectedRegistration.photos.length})
                     </Link>
+                  )}
+
+                  {/* Compliance Officers */}
+                  {selectedRegistration.complianceOfficers && selectedRegistration.complianceOfficers.length > 0 && (
+                    <ComplianceOfficersList
+                      companyId={selectedRegistration._id}
+                      officers={selectedRegistration.complianceOfficers}
+                      canEdit={user.role !== 'guest'}
+                      onChange={(updated) => {
+                        setRegistrations((prev) =>
+                          prev.map((r) =>
+                            r._id === selectedRegistration._id ? { ...r, complianceOfficers: updated } : r
+                          )
+                        );
+                        setSelectedRegistration((prev) =>
+                          prev && prev._id === selectedRegistration._id
+                            ? { ...prev, complianceOfficers: updated }
+                            : prev
+                        );
+                      }}
+                    />
                   )}
 
                   {/* Letters / Actions — data stays visible to staff, only the
@@ -1650,21 +1675,45 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
           Initiate Letters
         </Button>
       )}
+      <Button size="sm" colorScheme="gray" onClick={() => setAddRecordType('complianceOfficer')}>Compliance Officer</Button>
     </HStack>
   )}
 
   {addRecordType && (
     <Box ref={addActionsFormRef} borderWidth="1px" borderRadius="md" p={4} bg="gray.50">
       <HStack justify="space-between" mb={3}>
-        <Text fontWeight="bold">
-          {addRecordType === 'letter' && 'Add Action'}
-          {addRecordType === 'sanction' && 'Add Sanction'}
-          {addRecordType === 'violation' && 'Add Violation'}
-          {addRecordType === 'training' && 'Add Training'}
-          {addRecordType === 'onsite' && 'Add On-Site Inspection'}
-          {addRecordType === 'offsite' && 'Add Off-Site Inspection'}
-          {addRecordType === 'spotcheck' && 'Add Spot Check'}
-        </Text>
+        <HStack spacing={3} align="center">
+          <Text fontWeight="bold">
+            {addRecordType === 'letter' && 'Add Action'}
+            {addRecordType === 'diary' && 'Diary of Action'}
+            {addRecordType === 'complianceOfficer' && 'Add Compliance Officer'}
+            {addRecordType === 'sanction' && 'Add Sanction'}
+            {addRecordType === 'violation' && 'Add Violation'}
+            {addRecordType === 'training' && 'Add Training'}
+            {addRecordType === 'onsite' && 'Add On-Site Inspection'}
+            {addRecordType === 'offsite' && 'Add Off-Site Inspection'}
+            {addRecordType === 'spotcheck' && 'Add Spot Check'}
+          </Text>
+          {addRecordType === 'letter' && (
+            <Button
+              size="xs"
+              colorScheme="blue"
+              variant="outline"
+              onClick={() => setAddRecordType('diary')}
+            >
+              Diary of Action
+            </Button>
+          )}
+          {addRecordType === 'diary' && (
+            <Button
+              size="xs"
+              variant="outline"
+              onClick={() => setAddRecordType('letter')}
+            >
+              ← Back to Add Action
+            </Button>
+          )}
+        </HStack>
         <HStack spacing={2}>
           <Button size="xs" variant="ghost" onClick={() => setAddRecordType(null)}>Cancel</Button>
         </HStack>
@@ -1679,6 +1728,19 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
 
       {addRecordType === 'letter' && (
         <LetterForm
+          companyId={selectedRegistration._id}
+          companyName={selectedRegistration.companyName}
+          onSuccess={handleAddRecordSuccess}
+        />
+      )}
+      {addRecordType === 'diary' && (
+        <DiaryOfAction
+          companyId={selectedRegistration._id}
+          companyName={selectedRegistration.companyName}
+        />
+      )}
+      {addRecordType === 'complianceOfficer' && (
+        <ComplianceOfficerForm
           companyId={selectedRegistration._id}
           companyName={selectedRegistration.companyName}
           onSuccess={handleAddRecordSuccess}

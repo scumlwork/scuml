@@ -3,7 +3,6 @@
 import {
   Button,
   Input,
-  Select,
   Textarea,
   Text,
   HStack,
@@ -30,18 +29,6 @@ export interface CompanyFormProps {
   onSuccess: () => void;
 }
 
-const ACTIVITY_OPTIONS = [
-  'Invitation Schedule',
-  'Inspection Schedule',
-  'Training Schedule',
-  'Warning Schedule',
-  'Sanction Schedule',
-  'Visitation Schedule',
-  'Reminder Schedule',
-  'Follow Up Schedule',
-  'Appointment/Next Appointment Schedule',
-];
-
 const today = new Date().toISOString().split('T')[0];
 
 // Builds Google Calendar's event-creation URL, pre-filled with the
@@ -64,7 +51,6 @@ function buildGoogleCalendarUrl(companyName: string, dateStr: string, remark: st
 
 export default function LetterForm({ companyName, onSuccess }: CompanyFormProps) {
   const toast = useToast();
-  const [activity, setActivity] = useState('');
   const [contacts, setContacts] = useState<Contact[]>([{ name: '', position: '', phone: '', email: '' }]);
   const [remark, setRemark] = useState('');
   const [dateOfReporting, setDateOfReporting] = useState(today);
@@ -125,7 +111,6 @@ export default function LetterForm({ companyName, onSuccess }: CompanyFormProps)
         `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/letters`,
         {
           companyName,
-          typeOfLetter: activity,
           contacts: validContacts,
           remark,
           dateOfReporting,
@@ -174,19 +159,6 @@ export default function LetterForm({ companyName, onSuccess }: CompanyFormProps)
         <FormControl isRequired>
           <FormLabel>Company Name</FormLabel>
           <Input value={companyName} isReadOnly cursor="not-allowed" bg="gray.100" />
-        </FormControl>
-
-        <FormControl>
-          <FormLabel>Activities</FormLabel>
-          <Select
-            value={activity}
-            onChange={(e) => setActivity(e.target.value)}
-            placeholder="Select activity"
-          >
-            {ACTIVITY_OPTIONS.map((opt) => (
-              <option key={opt} value={opt}>{opt}</option>
-            ))}
-          </Select>
         </FormControl>
 
         <Box>

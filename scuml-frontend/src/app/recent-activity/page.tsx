@@ -30,7 +30,7 @@ import { useAuth } from '@/context/AuthContext';
 import ChatThread, { type ReferencedEntry } from '@/components/ChatThread';
 import OffsiteDocumentPanel from '@/components/OffsiteDocumentPanel';
 
-type ActivityType = 'identification' | 'action' | 'sanction' | 'violation' | 'training' | 'onsite' | 'offsite' | 'generatedLetter' | 'spotcheck' | 'memo' | 'reply';
+type ActivityType = 'identification' | 'action' | 'sanction' | 'violation' | 'training' | 'onsite' | 'offsite' | 'generatedLetter' | 'spotcheck' | 'memo' | 'reply' | 'complianceOfficer' | 'manualEntry';
 
 type Activity = {
   _id: string;
@@ -55,6 +55,8 @@ const TYPE_LABELS: Record<ActivityType, string> = {
   spotcheck: 'Spot Check',
   memo: 'Memo',
   reply: 'Reply',
+  complianceOfficer: 'Compliance Officer',
+  manualEntry: 'Manual Entry',
 };
 
 const TYPE_COLORS: Record<ActivityType, string> = {
@@ -69,6 +71,8 @@ const TYPE_COLORS: Record<ActivityType, string> = {
   spotcheck: 'cyan',
   memo: 'pink',
   reply: 'teal',
+  complianceOfficer: 'gray',
+  manualEntry: 'blue',
 };
 
 // Each type's own single-record API path, used both to fetch details for
@@ -85,6 +89,8 @@ const API_PATH: Record<ActivityType, string> = {
   spotcheck: 'spot-checks',
   memo: 'memos',
   reply: 'replies',
+  complianceOfficer: 'registrations',
+  manualEntry: 'registrations',
 };
 
 const DATE_KEYS = new Set(['createdAt', 'updatedAt', 'dateOfReporting']);
@@ -358,12 +364,16 @@ export default function RecentActivityPage() {
                     <Button size="xs" colorScheme="gray" onClick={() => handleView(activity)}>
                       View
                     </Button>
-                    <Button size="xs" colorScheme="blue" onClick={() => handleEdit(activity)}>
-                      Edit
-                    </Button>
-                    <Button size="xs" colorScheme="red" onClick={() => handleDelete(activity)}>
-                      Delete
-                    </Button>
+                    {activity.type !== 'complianceOfficer' && activity.type !== 'manualEntry' && (
+                      <Button size="xs" colorScheme="blue" onClick={() => handleEdit(activity)}>
+                        Edit
+                      </Button>
+                    )}
+                    {activity.type !== 'complianceOfficer' && activity.type !== 'manualEntry' && (
+                      <Button size="xs" colorScheme="red" onClick={() => handleDelete(activity)}>
+                        Delete
+                      </Button>
+                    )}
                     <Button size="xs" variant="outline" onClick={() => handleClose(activity)}>
                       Close
                     </Button>

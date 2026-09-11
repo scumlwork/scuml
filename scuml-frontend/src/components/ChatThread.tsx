@@ -34,7 +34,9 @@ export type ReferencedEntry = {
     | 'generatedLetter'
     | 'spotcheck'
     | 'memo'
-    | 'reply';
+    | 'reply'
+    | 'complianceOfficer'
+    | 'manualEntry';
   refId?: string;
   companyId?: string;
   companyName?: string;
@@ -63,6 +65,8 @@ const TYPE_LABELS: Record<ReferencedEntry['type'], string> = {
   spotcheck: 'Spot Check',
   memo: 'Memo',
   reply: 'Reply',
+  complianceOfficer: 'Compliance Officer',
+  manualEntry: 'Manual Entry',
 };
 
 // Shared chat UI — used inside the Messages page (every role) and the

@@ -31,6 +31,7 @@ import html2canvas from 'html2canvas';
 import type { CompanyFormProps } from './LetterForm';
 import { VIOLATIONS_LIST } from '@/lib/violationFines';
 import { nairaAmountInWords } from '@/lib/numberToWords';
+import PrintPortal from '@/components/PrintPortal';
 
 type OpenViolationInfo = {
   outstandingBalance?: number;
@@ -607,14 +608,13 @@ function ViolationNoticeLetter({
   };
 
   return (
+    <PrintPortal>
     <Box bg="gray.100" py={8} mx={-4}>
       <style>{`
         @media print {
-          body * { visibility: hidden; }
-          .print-area, .print-area * { visibility: visible; }
-          .print-area { position: absolute; top: 0; left: 0; width: 100%; }
           .no-print { display: none !important; }
           .violation-letter { box-shadow: none !important; }
+          .violation-letter tr { break-inside: avoid; page-break-inside: avoid; }
         }
         @page { size: A4; margin: 15mm; }
       `}</style>
@@ -767,5 +767,6 @@ function ViolationNoticeLetter({
         </Box>
       </Box>
     </Box>
+    </PrintPortal>
   );
 }
