@@ -1324,51 +1324,48 @@ const handleSaveEdit = async () => {
         </Text>
       </HStack>
 
-      {/* 🔹 Record-type buttons — pick which content displays below.
-          Company/Memo are grouped on the left, Recent Activity stays on the
-          right, all three at the same level. */}
-      <HStack justify="space-between" mb={4} flexWrap="wrap" gap={2}>
-        <HStack spacing={2}>
-          <Button
-            size="sm"
-            colorScheme="blue"
-            variant={activeTab === "company" ? "solid" : "outline"}
-            onClick={() => setActiveTab("company")}
-          >
-            Company Records ({registrations.length})
-          </Button>
-          <Button
-            size="sm"
-            colorScheme="pink"
-            variant={activeTab === "memo" ? "solid" : "outline"}
-            onClick={() => setActiveTab("memo")}
-          >
-            Memo Records ({memos.length})
-          </Button>
-          <Button
-            size="sm"
-            colorScheme="teal"
-            variant={activeTab === "reply" ? "solid" : "outline"}
-            onClick={() => setActiveTab("reply")}
-          >
-            Reply Records ({replies.length})
-          </Button>
-          <Button
-            size="sm"
-            colorScheme="purple"
-            variant={activeTab === "offsite" ? "solid" : "outline"}
-            onClick={() => setActiveTab("offsite")}
-          >
-            Off-Site Records ({offsiteInspections.length})
-          </Button>
-        </HStack>
+      {/* 🔹 Record-type buttons — pick which content displays below, all
+          grouped together at the same level. */}
+      <HStack mb={4} flexWrap="wrap" gap={2}>
+        <Button
+          size="sm"
+          colorScheme="blue"
+          variant={activeTab === "company" ? "solid" : "outline"}
+          onClick={() => setActiveTab("company")}
+        >
+          Company Records ({registrations.length})
+        </Button>
+        <Button
+          size="sm"
+          colorScheme="pink"
+          variant={activeTab === "memo" ? "solid" : "outline"}
+          onClick={() => setActiveTab("memo")}
+        >
+          Memo Records ({memos.length})
+        </Button>
+        <Button
+          size="sm"
+          colorScheme="teal"
+          variant={activeTab === "reply" ? "solid" : "outline"}
+          onClick={() => setActiveTab("reply")}
+        >
+          Reply Records ({replies.length})
+        </Button>
+        <Button
+          size="sm"
+          colorScheme="purple"
+          variant={activeTab === "offsite" ? "solid" : "outline"}
+          onClick={() => setActiveTab("offsite")}
+        >
+          Off-Site Records ({offsiteInspections.length})
+        </Button>
         <Button
           size="sm"
           colorScheme="orange"
           variant={activeTab === "recent" ? "solid" : "outline"}
           onClick={() => setActiveTab("recent")}
         >
-          Recent Activity
+          Recent Activity ({raActivities.length})
         </Button>
       </HStack>
 
@@ -1570,11 +1567,6 @@ const handleSaveEdit = async () => {
 
       {activeTab === "offsite" && (
         <Box>
-          <Text fontSize="xs" color="gray.500" mb={2}>
-            Every Off-Site Inspection across every company, in one place — for
-            document-mode entries, this shows exactly where the file is
-            stored (its Cloudinary URL), visible only here on the Admin page.
-          </Text>
           {offsiteInspections.length === 0 ? (
             <Text fontSize="xs" color="gray.500">No off-site inspections yet.</Text>
           ) : (

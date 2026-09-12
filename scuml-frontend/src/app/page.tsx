@@ -633,7 +633,7 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
 
   // 🔹 Inline "add a record" panel inside the Company Compliance Record modal
   const [addRecordType, setAddRecordType] = useState<
-    'letter' | 'sanction' | 'violation' | 'training' | 'onsite' | 'offsite' | 'spotcheck' | 'complianceOfficer' | 'diary' | null
+    'letter' | 'sanction' | 'violation' | 'training' | 'onsite' | 'offsite' | 'spotcheck' | 'complianceOfficer' | null
   >(null);
   const addActionsFormRef = useRef<HTMLDivElement>(null);
 
@@ -1130,6 +1130,17 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
                     >
                       View Photos ({selectedRegistration.photos.length})
                     </Link>
+                  )}
+
+                  {/* Diary of Action — every logged action for this company,
+                      right after its Registration Details. */}
+                  {user.role === 'superadmin' && (
+                    <Box mt={4} pt={4} borderTopWidth="1px">
+                      <DiaryOfAction
+                        companyId={selectedRegistration._id}
+                        companyName={selectedRegistration.companyName}
+                      />
+                    </Box>
                   )}
 
                   {/* Compliance Officers */}
@@ -1685,7 +1696,6 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
         <HStack spacing={3} align="center">
           <Text fontWeight="bold">
             {addRecordType === 'letter' && 'Add Action'}
-            {addRecordType === 'diary' && 'Diary of Action'}
             {addRecordType === 'complianceOfficer' && 'Add Compliance Officer'}
             {addRecordType === 'sanction' && 'Add Sanction'}
             {addRecordType === 'violation' && 'Add Violation'}
@@ -1694,25 +1704,6 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
             {addRecordType === 'offsite' && 'Add Off-Site Inspection'}
             {addRecordType === 'spotcheck' && 'Add Spot Check'}
           </Text>
-          {addRecordType === 'letter' && (
-            <Button
-              size="xs"
-              colorScheme="blue"
-              variant="outline"
-              onClick={() => setAddRecordType('diary')}
-            >
-              Diary of Action
-            </Button>
-          )}
-          {addRecordType === 'diary' && (
-            <Button
-              size="xs"
-              variant="outline"
-              onClick={() => setAddRecordType('letter')}
-            >
-              ← Back to Add Action
-            </Button>
-          )}
         </HStack>
         <HStack spacing={2}>
           <Button size="xs" variant="ghost" onClick={() => setAddRecordType(null)}>Cancel</Button>
@@ -1731,12 +1722,6 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
           companyId={selectedRegistration._id}
           companyName={selectedRegistration.companyName}
           onSuccess={handleAddRecordSuccess}
-        />
-      )}
-      {addRecordType === 'diary' && (
-        <DiaryOfAction
-          companyId={selectedRegistration._id}
-          companyName={selectedRegistration.companyName}
         />
       )}
       {addRecordType === 'complianceOfficer' && (
