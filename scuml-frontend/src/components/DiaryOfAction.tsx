@@ -150,6 +150,9 @@ export default function DiaryOfAction({
 
   return (
     <Box>
+      <Text fontSize="lg" fontWeight="bold" color="red.600" mb={1}>
+        Diary of Action
+      </Text>
       <HStack justify="space-between" mb={3}>
         <Text fontWeight="bold">{companyName}</Text>
         <HStack spacing={2}>

@@ -49,6 +49,8 @@ import { NATURE_OF_BUSINESS_OPTIONS } from "@/lib/natureOfBusiness";
 import ChatThread from "@/components/ChatThread";
 import OffsiteDocumentPanel from "@/components/OffsiteDocumentPanel";
 import ComplianceOfficersList from "@/components/ComplianceOfficersList";
+import OnSiteInspectionDetails, { type OnSiteInspectionLike } from "@/components/OnSiteInspectionDetails";
+import { AML_CFT_REQUIREMENTS } from "@/lib/onSiteInspectionRequirements";
 
 // 🔹 Types
 interface Letter {
@@ -166,15 +168,18 @@ interface OffSiteInspection {
 
 
 
+// Legacy (pre-redesign) on-site inspection shapes — only present on older
+// records; the current form (see OnSiteInspectionDetails /
+// onSiteInspectionRequirements) no longer collects them.
 interface Obligation {
   obligation: string;
-  complianceStatus: string;
-  remark: string;
+  complianceStatus?: string;
+  remark?: string;
 }
 
 interface OrgProfile {
   desc: string;
-  remark: string;
+  remark?: string;
 }
 
 interface RiskClassification {
@@ -183,24 +188,18 @@ interface RiskClassification {
 }
 
 interface Attendance {
-  name: string;
-  organization: string;
-  position: string;
-  phone: string;
-  sign: string;
+  name?: string;
+  organization?: string;
+  position?: string;
+  phone?: string;
+  sign?: string;
 }
 
-interface OnSiteInspection {
-  _id: string;
-  obligations: Obligation[];
-  orgProfile: OrgProfile[];
-  riskClassification?: RiskClassification;   // ✅ now defined
-  attendance: Attendance[];
-  createdBy?: string;
-
-  // backward compatibility with old schema
-  riskLevel?: "Low" | "Medium" | "High"; 
-}
+type OnSiteInspection = OnSiteInspectionLike & {
+  obligations?: Obligation[];
+  orgProfile?: OrgProfile[];
+  attendance?: Attendance[];
+};
 
 
 
@@ -2445,79 +2444,7 @@ const handleSaveEdit = async () => {
         mb={4}
         overflowX="auto"
       >
-        {/* Compliance / Obligations */}
-        <Heading size="sm" mb={2}>Compliance with the Law & Regulation</Heading>
-        <Table size="sm" mb={4}>
-          <Thead>
-            <Tr>
-              <Th>Obligation</Th>
-              <Th>Compliance Status</Th>
-              <Th>Remark</Th>
-            </Tr>
-          </Thead>
-          <Tbody>
-            {insp.obligations?.map((o: Obligation, idx: number) => (
-              <Tr key={idx}>
-                <Td>{o.obligation}</Td>
-                <Td>{o.complianceStatus || ""}</Td>
-                <Td>{o.remark || ""}</Td>
-              </Tr>
-            ))}
-          </Tbody>
-        </Table>
-
-        {/* Organization Profile */}
-        <Heading size="sm" mb={2}>Organization Profile</Heading>
-        <Table size="sm" mb={4}>
-          <Thead>
-            <Tr>
-              <Th>Description</Th>
-              <Th>Remark</Th>
-            </Tr>
-          </Thead>
-          <Tbody>
-            {insp.orgProfile?.map((p: OrgProfile, idx: number) => (
-              <Tr key={idx}>
-                <Td>{p.desc}</Td>
-                <Td>{p.remark || ""}</Td>
-              </Tr>
-            ))}
-          </Tbody>
-        </Table>
-
-        {/* Risk Classification */}
-        <Heading size="sm" mb={2}>Money Laundering Risk Classification</Heading>
-        <Text><b>Level:</b> {insp.riskClassification?.level || insp.riskLevel || "N/A"}</Text>
-        <Text><b>Vulnerabilities:</b> {insp.riskClassification?.vulnerabilities || "N/A"}</Text>
-
-
-        {/* Attendance */}
-        <Heading size="sm" mb={2} mt={4}>Attendance</Heading>
-        <Table size="sm">
-          <Thead>
-            <Tr>
-              <Th>Name</Th>
-              <Th>Organization</Th>
-              <Th>Position</Th>
-              <Th>Phone</Th>
-              <Th>Sign</Th>
-            </Tr>
-          </Thead>
-          <Tbody>
-            {insp.attendance?.map((a: Attendance, idx: number) => (
-              <Tr key={idx}>
-                <Td>{a.name || ""}</Td>
-                <Td>{a.organization || ""}</Td>
-                <Td>{a.position || ""}</Td>
-                <Td>{a.phone || ""}</Td>
-                <Td>{a.sign || ""}</Td>
-              </Tr>
-            ))}
-          </Tbody>
-        </Table>
-
-       {/* Entered by */}
-      <Text mt={2}><b>Entered by:</b> {insp.createdBy || "N/A"}</Text>
+        <OnSiteInspectionDetails insp={insp} />
 
       {/* Actions */}
       <Flex gap={2} mt={3}>
@@ -3239,164 +3166,356 @@ const handleSaveEdit = async () => {
   </>
 )}
 
-{editType === "onsite" && (
-  <Box>
-    <Text fontSize="lg" fontWeight="bold" mb={4}>
-      On-Site Inspection
-    </Text>
+{editType === "onsite" && (() => {
+  const insp = editItem as OnSiteInspection;
+  const isCurrentFormat =
+    (insp.observations && insp.observations.length > 0) ||
+    (insp.documentsRequested && insp.documentsRequested.length > 0);
 
-    <Text fontWeight="semibold" mb={2}>Compliance with the Law &amp; Regulation</Text>
+  const updateObservation = (
+    idx: number,
+    field: "observation" | "recommendation",
+    value: string
+  ) => {
+    const all = [...(insp.observations || [])];
+    all[idx] = { ...all[idx], [field]: value };
+    setEditItem({ ...insp, observations: all });
+  };
+
+  const observationTable = (rows: typeof insp.observations, offset: number) => (
     <Box overflowX="auto" mb={6}>
       <Table size="sm" variant="simple">
         <Thead>
           <Tr>
-            <Th minW="200px">Obligation</Th>
-            <Th minW="200px">Compliance Status</Th>
-            <Th minW="200px">Remark</Th>
+            <Th minW="220px">Requirement</Th>
+            <Th minW="200px">Observation</Th>
+            <Th minW="250px">Recommendations/Remedial Action</Th>
           </Tr>
         </Thead>
         <Tbody>
-          {(editItem as OnSiteInspection).obligations?.map((o, idx) => (
-            <Tr key={idx}>
-              <Td>{o.obligation}</Td>
-              <Td>
-                <Textarea
-                  size="sm"
-                  minH="100px"
-                  minW="220px"
-                  value={o.complianceStatus || ""}
-                  onChange={(e) => {
-                    const updated = [...(editItem as OnSiteInspection).obligations];
-                    updated[idx] = { ...o, complianceStatus: e.target.value };
-                    setEditItem({ ...(editItem as OnSiteInspection), obligations: updated });
-                  }}
-                />
-              </Td>
-              <Td>
-                <Textarea
-                  size="sm"
-                  minH="100px"
-                  minW="220px"
-                  value={o.remark || ""}
-                  onChange={(e) => {
-                    const updated = [...(editItem as OnSiteInspection).obligations];
-                    updated[idx] = { ...o, remark: e.target.value };
-                    setEditItem({ ...(editItem as OnSiteInspection), obligations: updated });
-                  }}
-                />
-              </Td>
-            </Tr>
-          ))}
-        </Tbody>
-      </Table>
-    </Box>
-
-    <Text fontWeight="semibold" mb={2}>Organization Profile</Text>
-    <Box overflowX="auto" mb={6}>
-      <Table size="sm" variant="simple">
-        <Thead>
-          <Tr>
-            <Th minW="200px">Description</Th>
-            <Th minW="250px">Remark</Th>
-          </Tr>
-        </Thead>
-        <Tbody>
-          {(editItem as OnSiteInspection).orgProfile?.map((p, idx) => (
-            <Tr key={idx}>
-              <Td>{p.desc}</Td>
-              <Td>
-                <Textarea
-                  size="sm"
-                  minH="100px"
-                  minW="220px"
-                  value={p.remark || ""}
-                  onChange={(e) => {
-                    const updated = [...(editItem as OnSiteInspection).orgProfile];
-                    updated[idx] = { ...p, remark: e.target.value };
-                    setEditItem({ ...(editItem as OnSiteInspection), orgProfile: updated });
-                  }}
-                />
-              </Td>
-            </Tr>
-          ))}
-        </Tbody>
-      </Table>
-    </Box>
-
-    <Text fontWeight="semibold" mb={2}>Money Laundering Risk Classification</Text>
-    <Box mb={3}>
-      <Text fontSize="sm" mb={1}>Level</Text>
-      <select
-        style={{ width: "100%", padding: "6px" }}
-        value={(editItem as OnSiteInspection).riskClassification?.level || "low"}
-        onChange={(e) =>
-          setEditItem({
-            ...(editItem as OnSiteInspection),
-            riskClassification: {
-              level: e.target.value as RiskClassification["level"],
-              vulnerabilities:
-                (editItem as OnSiteInspection).riskClassification?.vulnerabilities || "",
-            },
-          })
-        }
-      >
-        <option value="low">Low</option>
-        <option value="medium">Medium</option>
-        <option value="high">High</option>
-      </select>
-    </Box>
-    <Box mb={6}>
-      <Text fontSize="sm" mb={1}>Vulnerabilities</Text>
-      <Textarea
-        minH="150px"
-        value={(editItem as OnSiteInspection).riskClassification?.vulnerabilities || ""}
-        onChange={(e) =>
-          setEditItem({
-            ...(editItem as OnSiteInspection),
-            riskClassification: {
-              level: (editItem as OnSiteInspection).riskClassification?.level || "low",
-              vulnerabilities: e.target.value,
-            },
-          })
-        }
-      />
-    </Box>
-
-    <Text fontWeight="semibold" mb={2}>Attendance</Text>
-    <Box overflowX="auto">
-      <Table size="sm" variant="simple">
-        <Thead>
-          <Tr>
-            <Th minW="150px">Name</Th>
-            <Th minW="150px">Organization</Th>
-            <Th minW="120px">Position</Th>
-            <Th minW="120px">Phone</Th>
-            <Th minW="100px">Sign</Th>
-          </Tr>
-        </Thead>
-        <Tbody>
-          {(editItem as OnSiteInspection).attendance?.map((a, idx) => (
-            <Tr key={idx}>
-              {(["name", "organization", "position", "phone", "sign"] as const).map((field) => (
-                <Td key={field}>
-                  <Input
+          {(rows || []).map((o, i) => {
+            const idx = i + offset;
+            return (
+              <Tr key={idx}>
+                <Td>{o.requirement}</Td>
+                <Td>
+                  <Textarea
                     size="sm"
-                    value={a[field] || ""}
-                    onChange={(e) => {
-                      const updated = [...(editItem as OnSiteInspection).attendance];
-                      updated[idx] = { ...a, [field]: e.target.value };
-                      setEditItem({ ...(editItem as OnSiteInspection), attendance: updated });
-                    }}
+                    minH="100px"
+                    minW="200px"
+                    value={o.observation || ""}
+                    onChange={(e) => updateObservation(idx, "observation", e.target.value)}
                   />
                 </Td>
-              ))}
-            </Tr>
-          ))}
+                <Td>
+                  <Textarea
+                    size="sm"
+                    minH="100px"
+                    minW="220px"
+                    value={o.recommendation || ""}
+                    onChange={(e) => updateObservation(idx, "recommendation", e.target.value)}
+                  />
+                </Td>
+              </Tr>
+            );
+          })}
         </Tbody>
       </Table>
     </Box>
-  </Box>
-)}
+  );
+
+  return (
+    <Box>
+      <Text fontSize="lg" fontWeight="bold" mb={4}>
+        On-Site Inspection
+      </Text>
+
+      {isCurrentFormat ? (
+        <>
+          <Text fontWeight="semibold" mb={1}>Coverage/Period</Text>
+          <Input
+            mb={4}
+            value={insp.coveragePeriod || ""}
+            onChange={(e) => setEditItem({ ...insp, coveragePeriod: e.target.value })}
+          />
+
+          <Text fontWeight="semibold" mb={1}>Date of Examination</Text>
+          <Input
+            type="date"
+            mb={4}
+            value={insp.dateOfExamination || ""}
+            onChange={(e) => setEditItem({ ...insp, dateOfExamination: e.target.value })}
+          />
+
+          <Text fontWeight="semibold" mb={1}>Areas Covered</Text>
+          <Input
+            mb={4}
+            value={insp.areasCovered || ""}
+            onChange={(e) => setEditItem({ ...insp, areasCovered: e.target.value })}
+          />
+
+          <Text fontWeight="semibold" mb={1}>Structure</Text>
+          <Textarea
+            mb={6}
+            minH="120px"
+            value={insp.structure || ""}
+            onChange={(e) => setEditItem({ ...insp, structure: e.target.value })}
+          />
+
+          <Text fontWeight="semibold" mb={1}>Management Team Interviewed</Text>
+          <Textarea
+            mb={6}
+            minH="100px"
+            value={insp.managementTeamInterviewed || ""}
+            onChange={(e) => setEditItem({ ...insp, managementTeamInterviewed: e.target.value })}
+          />
+
+          <Text fontWeight="semibold" mb={2}>Documents Requested</Text>
+          <Box overflowX="auto" mb={6}>
+            <Table size="sm" variant="simple">
+              <Thead>
+                <Tr>
+                  <Th minW="220px">Documents Requested</Th>
+                  <Th minW="250px">Documents Provided/Reviewed</Th>
+                </Tr>
+              </Thead>
+              <Tbody>
+                {(insp.documentsRequested || []).map((d, idx) => (
+                  <Tr key={idx}>
+                    <Td>{d.document}</Td>
+                    <Td>
+                      <Textarea
+                        size="sm"
+                        minH="80px"
+                        minW="220px"
+                        value={d.provided || ""}
+                        onChange={(e) => {
+                          const updated = [...(insp.documentsRequested || [])];
+                          updated[idx] = { ...d, provided: e.target.value };
+                          setEditItem({ ...insp, documentsRequested: updated });
+                        }}
+                      />
+                    </Td>
+                  </Tr>
+                ))}
+              </Tbody>
+            </Table>
+          </Box>
+
+          <Text fontWeight="semibold" mb={1}>Specific Findings</Text>
+          <Textarea
+            mb={6}
+            minH="120px"
+            value={insp.specificFindings || ""}
+            onChange={(e) => setEditItem({ ...insp, specificFindings: e.target.value })}
+          />
+
+          <Text fontWeight="semibold" mb={1}>Material Exception</Text>
+          <Textarea
+            mb={6}
+            minH="120px"
+            value={insp.materialException || ""}
+            onChange={(e) => setEditItem({ ...insp, materialException: e.target.value })}
+          />
+
+          <Text fontWeight="semibold" mb={1}>Politically Exposed Persons (PEP)</Text>
+          <Textarea
+            mb={6}
+            minH="100px"
+            value={insp.politicallyExposedPersons || ""}
+            onChange={(e) => setEditItem({ ...insp, politicallyExposedPersons: e.target.value })}
+          />
+
+          <Text fontWeight="semibold" mb={1}>Suspicious Transaction Reporting (STR)</Text>
+          <Textarea
+            mb={6}
+            minH="100px"
+            value={insp.suspiciousTransactionReporting || ""}
+            onChange={(e) => setEditItem({ ...insp, suspiciousTransactionReporting: e.target.value })}
+          />
+
+          <Text fontWeight="semibold" mb={1}>Targeted Financial Sanctions (TFS)</Text>
+          <Textarea
+            mb={6}
+            minH="100px"
+            value={insp.targetedFinancialSanctions || ""}
+            onChange={(e) => setEditItem({ ...insp, targetedFinancialSanctions: e.target.value })}
+          />
+
+          <Text fontWeight="semibold" mb={2}>Observations — AML/CFT Requirements</Text>
+          {observationTable(insp.observations?.slice(0, AML_CFT_REQUIREMENTS.length), 0)}
+
+          <Text fontWeight="semibold" mb={2}>
+            Observations — Terrorism Prevention and Prohibition Act, 2022
+          </Text>
+          {observationTable(
+            insp.observations?.slice(AML_CFT_REQUIREMENTS.length),
+            AML_CFT_REQUIREMENTS.length
+          )}
+
+          <Text fontWeight="semibold" mb={1}>Conclusion/Recommendations</Text>
+          <Textarea
+            minH="120px"
+            value={insp.conclusionRecommendations || ""}
+            onChange={(e) => setEditItem({ ...insp, conclusionRecommendations: e.target.value })}
+          />
+        </>
+      ) : (
+        <>
+          <Text fontWeight="semibold" mb={2}>Compliance with the Law &amp; Regulation</Text>
+          <Box overflowX="auto" mb={6}>
+            <Table size="sm" variant="simple">
+              <Thead>
+                <Tr>
+                  <Th minW="200px">Obligation</Th>
+                  <Th minW="200px">Compliance Status</Th>
+                  <Th minW="200px">Remark</Th>
+                </Tr>
+              </Thead>
+              <Tbody>
+                {insp.obligations?.map((o, idx) => (
+                  <Tr key={idx}>
+                    <Td>{o.obligation}</Td>
+                    <Td>
+                      <Textarea
+                        size="sm"
+                        minH="100px"
+                        minW="220px"
+                        value={o.complianceStatus || ""}
+                        onChange={(e) => {
+                          const updated = [...(insp.obligations || [])];
+                          updated[idx] = { ...o, complianceStatus: e.target.value };
+                          setEditItem({ ...insp, obligations: updated });
+                        }}
+                      />
+                    </Td>
+                    <Td>
+                      <Textarea
+                        size="sm"
+                        minH="100px"
+                        minW="220px"
+                        value={o.remark || ""}
+                        onChange={(e) => {
+                          const updated = [...(insp.obligations || [])];
+                          updated[idx] = { ...o, remark: e.target.value };
+                          setEditItem({ ...insp, obligations: updated });
+                        }}
+                      />
+                    </Td>
+                  </Tr>
+                ))}
+              </Tbody>
+            </Table>
+          </Box>
+
+          <Text fontWeight="semibold" mb={2}>Organization Profile</Text>
+          <Box overflowX="auto" mb={6}>
+            <Table size="sm" variant="simple">
+              <Thead>
+                <Tr>
+                  <Th minW="200px">Description</Th>
+                  <Th minW="250px">Remark</Th>
+                </Tr>
+              </Thead>
+              <Tbody>
+                {insp.orgProfile?.map((p, idx) => (
+                  <Tr key={idx}>
+                    <Td>{p.desc}</Td>
+                    <Td>
+                      <Textarea
+                        size="sm"
+                        minH="100px"
+                        minW="220px"
+                        value={p.remark || ""}
+                        onChange={(e) => {
+                          const updated = [...(insp.orgProfile || [])];
+                          updated[idx] = { ...p, remark: e.target.value };
+                          setEditItem({ ...insp, orgProfile: updated });
+                        }}
+                      />
+                    </Td>
+                  </Tr>
+                ))}
+              </Tbody>
+            </Table>
+          </Box>
+
+          <Text fontWeight="semibold" mb={2}>Money Laundering Risk Classification</Text>
+          <Box mb={3}>
+            <Text fontSize="sm" mb={1}>Level</Text>
+            <select
+              style={{ width: "100%", padding: "6px" }}
+              value={insp.riskClassification?.level || "low"}
+              onChange={(e) =>
+                setEditItem({
+                  ...insp,
+                  riskClassification: {
+                    level: e.target.value as RiskClassification["level"],
+                    vulnerabilities: insp.riskClassification?.vulnerabilities || "",
+                  },
+                })
+              }
+            >
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+            </select>
+          </Box>
+          <Box mb={6}>
+            <Text fontSize="sm" mb={1}>Vulnerabilities</Text>
+            <Textarea
+              minH="150px"
+              value={insp.riskClassification?.vulnerabilities || ""}
+              onChange={(e) =>
+                setEditItem({
+                  ...insp,
+                  riskClassification: {
+                    level: (insp.riskClassification?.level as RiskClassification["level"]) || "low",
+                    vulnerabilities: e.target.value,
+                  },
+                })
+              }
+            />
+          </Box>
+
+          <Text fontWeight="semibold" mb={2}>Attendance</Text>
+          <Box overflowX="auto">
+            <Table size="sm" variant="simple">
+              <Thead>
+                <Tr>
+                  <Th minW="150px">Name</Th>
+                  <Th minW="150px">Organization</Th>
+                  <Th minW="120px">Position</Th>
+                  <Th minW="120px">Phone</Th>
+                  <Th minW="100px">Sign</Th>
+                </Tr>
+              </Thead>
+              <Tbody>
+                {insp.attendance?.map((a, idx) => (
+                  <Tr key={idx}>
+                    {(["name", "organization", "position", "phone", "sign"] as const).map((field) => (
+                      <Td key={field}>
+                        <Input
+                          size="sm"
+                          value={a[field] || ""}
+                          onChange={(e) => {
+                            const updated = [...(insp.attendance || [])];
+                            updated[idx] = { ...a, [field]: e.target.value };
+                            setEditItem({ ...insp, attendance: updated });
+                          }}
+                        />
+                      </Td>
+                    ))}
+                  </Tr>
+                ))}
+              </Tbody>
+            </Table>
+          </Box>
+        </>
+      )}
+    </Box>
+  );
+})()}
 
             </ModalBody>
             <ModalFooter>

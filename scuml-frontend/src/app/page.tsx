@@ -49,6 +49,7 @@ import TrainingForm from '@/components/forms/TrainingForm';
 import ComplianceOfficerForm from '@/components/forms/ComplianceOfficerForm';
 import ComplianceOfficersList from '@/components/ComplianceOfficersList';
 import DiaryOfAction from '@/components/DiaryOfAction';
+import OnSiteInspectionDetails, { type OnSiteInspectionLike } from '@/components/OnSiteInspectionDetails';
 import OnSiteInspectionForm from '@/components/forms/OnSiteInspectionForm';
 import OffSiteInspectionForm from '@/components/forms/OffSiteInspectionForm';
 import OffsiteDocumentPanel from '@/components/OffsiteDocumentPanel';
@@ -143,38 +144,10 @@ function violationCards(v: Violation): ViolationCard[] {
 }
 
 
-type Obligation = {
-  obligation: string;
-  complianceStatus: string;
-  remark: string;
-};
-
-type OrgProfile = {
-  desc: string;
-  remark: string;
-};
-
-type RiskClassification = {
-  level: "low" | "medium" | "high";
-  vulnerabilities: string;
-};
-
-type Attendance = {
-  name: string;
-  organization: string;
-  position: string;
-  phone: string;
-  sign: string;
-};
-
-type OnSiteInspection = {
-  _id: string;
-  obligations?: Obligation[];
-  orgProfile?: OrgProfile[];
-  riskClassification?: RiskClassification;
-  attendance?: Attendance[];
-  createdBy?: string;
-};
+// On-site inspection fields (current Exam Report structure + legacy
+// pre-redesign fields for older records) live in OnSiteInspectionLike —
+// see components/OnSiteInspectionDetails.tsx, which also renders this type.
+type OnSiteInspection = OnSiteInspectionLike;
 
 type Training = {
   _id: string;
@@ -1344,84 +1317,7 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
                       </HStack>
                       {selectedRegistration.onSiteInspections.map((insp) => (
                         <Box key={insp._id} p={3} borderWidth="1px" borderRadius="md" mb={3} overflowX="auto">
-                          {insp.obligations && insp.obligations.length > 0 && (
-                            <Box mb={3}>
-                              <Text fontWeight="bold" mb={1}>Compliance with the Law & Regulation</Text>
-                              <Table size="sm" variant="simple">
-                                <Thead>
-                                  <Tr>
-                                    <Th>Obligation</Th>
-                                    <Th>Compliance Status</Th>
-                                    <Th>Remark</Th>
-                                  </Tr>
-                                </Thead>
-                                <Tbody>
-                                  {insp.obligations.map((o, idx) => (
-                                    <Tr key={idx}>
-                                      <Td>{o.obligation}</Td>
-                                      <Td>{o.complianceStatus || "N/A"}</Td>
-                                      <Td>{o.remark || "N/A"}</Td>
-                                    </Tr>
-                                  ))}
-                                </Tbody>
-                              </Table>
-                            </Box>
-                          )}
-
-                          {insp.orgProfile && insp.orgProfile.length > 0 && (
-                            <Box mb={3}>
-                              <Text fontWeight="bold" mb={1}>Organization Profile</Text>
-                              <Table size="sm" variant="simple">
-                                <Thead>
-                                  <Tr>
-                                    <Th>Description</Th>
-                                    <Th>Remark</Th>
-                                  </Tr>
-                                </Thead>
-                                <Tbody>
-                                  {insp.orgProfile.map((p, idx) => (
-                                    <Tr key={idx}>
-                                      <Td>{p.desc}</Td>
-                                      <Td>{p.remark || "N/A"}</Td>
-                                    </Tr>
-                                  ))}
-                                </Tbody>
-                              </Table>
-                            </Box>
-                          )}
-
-                          <Text>
-                            <b>Risk Level:</b> {insp.riskClassification?.level || "N/A"}
-                          </Text>
-                          <Text mb={3}>
-                            <b>Vulnerabilities:</b> {insp.riskClassification?.vulnerabilities || "N/A"}
-                          </Text>
-
-                          {insp.attendance && insp.attendance.length > 0 && (
-                            <Box mb={2}>
-                              <Text fontWeight="bold" mb={1}>Attendance</Text>
-                              <Table size="sm" variant="simple">
-                                <Thead>
-                                  <Tr>
-                                    <Th>Name</Th>
-                                    <Th>Organization</Th>
-                                    <Th>Position</Th>
-                                    <Th>Phone</Th>
-                                  </Tr>
-                                </Thead>
-                                <Tbody>
-                                  {insp.attendance.map((a, idx) => (
-                                    <Tr key={idx}>
-                                      <Td>{a.name || "N/A"}</Td>
-                                      <Td>{a.organization || "N/A"}</Td>
-                                      <Td>{a.position || "N/A"}</Td>
-                                      <Td>{a.phone || "N/A"}</Td>
-                                    </Tr>
-                                  ))}
-                                </Tbody>
-                              </Table>
-                            </Box>
-                          )}
+                          <OnSiteInspectionDetails insp={insp} />
                         </Box>
                       ))}
                     </Box>

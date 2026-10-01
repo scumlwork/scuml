@@ -4,6 +4,7 @@ import { useState } from 'react';
 import {
   Box,
   Button,
+  Input,
   Table,
   Thead,
   Tbody,
@@ -11,155 +12,76 @@ import {
   Th,
   Td,
   Textarea,
-  Input,
   useToast,
 } from '@chakra-ui/react';
 import axios from 'axios';
 import type { CompanyFormProps } from './LetterForm';
+import {
+  AML_CFT_REQUIREMENTS,
+  TPPA_REQUIREMENTS,
+  blankObservations,
+  blankDocumentsRequested,
+  type ObservationRow,
+  type DocumentRequestRow,
+} from '@/lib/onSiteInspectionRequirements';
 
+// Matches the Exam Report template: Risk Assessment (management team
+// interviewed + documents requested/provided), Specific Findings, Material
+// Exception, PEP/STR/TFS, the AML/CFT Requirements Observations table (plus
+// its Terrorism Prevention and Prohibition Act, 2022 section), and
+// Conclusion/Recommendations.
 export default function OnSiteInspectionForm({ companyId, onSuccess }: CompanyFormProps) {
-  const [selectedRiskLevel, setSelectedRiskLevel] = useState<'low' | 'medium' | 'high'>('low');
-  const [riskVulnerabilities, setRiskVulnerabilities] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const toast = useToast();
 
-  // --- Obligations (stateful with prefilled remark) ---
-  const [obligations, setObligations] = useState(
-    [
-      {
-        obligation: 'Registration with SCUML',
-        complianceStatus: '',
-        remark: 'SC. No., Date of issuance, Collection office, Place and Name of Collector:',
-      },
-      {
-        obligation: 'Appointment of Compliance Officer',
-        complianceStatus: '',
-        remark: 'Name, Rank, Date Appointed, Date of Employment:',
-      },
-      {
-        obligation: 'Anti-Money Laundering Counter Terrorism Financing Policy Document',
-        complianceStatus: '',
-        remark: 'Date of First Issued, Content:',
-      },
-      {
-        obligation: 'Know Your Customer / Customer Identification & Customer Due Diligence',
-        complianceStatus: '',
-        remark: 'Sufficiency of the Information, Copies of ID Card, Evidence of Verification:',
-      },
-      {
-        obligation: 'Transactions Reporting',
-        complianceStatus: '',
-        remark: 'Reporting Procedure, Copies of Acknowledgment, Date of Last Report:',
-      },
-      {
-        obligation: 'Cash Payment, Anti-Money Laundering Notice',
-        complianceStatus: '',
-        remark: 'Cash Acceptance Policy, Acceptance Threshold Notice Display, AML Notice:',
-      },
-      {
-        obligation:
-          'Cooperation With Professional Bodies, Associations, Regulators and Law Enforcement Agency',
-        complianceStatus: '',
-        remark:
-          'Membership of Association/Professional Body, Last date meeting attended, response/report to other law enforcement:',
-      },
-      {
-        obligation: 'Design and Implement Compressive Training Program',
-        complianceStatus: '',
-        remark: 'Last Date of Training, evidence notification to SCUML, training plans:',
-      },
-      {
-        obligation: 'Sanction Screening',
-        complianceStatus: '',
-        remark: 'Date of Subscription, date of last update:',
-      },
-      {
-        obligation:
-          'Anti-Money Laundering/Counter Terrorism Financing Risk Assessment Framework',
-        complianceStatus: '',
-        remark: 'Customer risk classification, appointment of internal auditor:',
-      },
-      {
-        obligation: 'Other Statutory Report to SCUML',
-        complianceStatus: '',
-        remark: 'PEP Reporting, Public Sector Reporting, Employee Training Reporting:',
-      },
-    ] as { obligation: string; complianceStatus: string; remark: string }[]
-  );
+  // --- Cover page ---
+  const [coveragePeriod, setCoveragePeriod] = useState('');
+  const [dateOfExamination, setDateOfExamination] = useState(new Date().toISOString().split('T')[0]);
+  const [areasCovered, setAreasCovered] = useState('');
+  const [structure, setStructure] = useState('');
 
-  const handleObligationChange = (
+  // --- Risk Assessment ---
+  const [managementTeamInterviewed, setManagementTeamInterviewed] = useState('');
+  const [documentsRequested, setDocumentsRequested] = useState<DocumentRequestRow[]>(
+    blankDocumentsRequested()
+  );
+  const handleDocumentChange = (index: number, value: string) => {
+    const updated = [...documentsRequested];
+    updated[index] = { ...updated[index], provided: value };
+    setDocumentsRequested(updated);
+  };
+
+  // --- Specific Findings / Material Exception ---
+  const [specificFindings, setSpecificFindings] = useState('');
+  const [materialException, setMaterialException] = useState('');
+
+  // --- PEP / STR / TFS ---
+  const [politicallyExposedPersons, setPoliticallyExposedPersons] = useState('');
+  const [suspiciousTransactionReporting, setSuspiciousTransactionReporting] = useState('');
+  const [targetedFinancialSanctions, setTargetedFinancialSanctions] = useState('');
+
+  // --- Observations (AML/CFT Requirements, then Terrorism Prevention and
+  // Prohibition Act, 2022) ---
+  const [amlObservations, setAmlObservations] = useState<ObservationRow[]>(
+    blankObservations(AML_CFT_REQUIREMENTS)
+  );
+  const [tppaObservations, setTppaObservations] = useState<ObservationRow[]>(
+    blankObservations(TPPA_REQUIREMENTS)
+  );
+  const handleObservationChange = (
+    rows: ObservationRow[],
+    setRows: (rows: ObservationRow[]) => void,
     index: number,
-    field: 'complianceStatus' | 'remark',
+    field: 'observation' | 'recommendation',
     value: string
   ) => {
-    const updated = [...obligations];
-    updated[index][field] = value;
-    setObligations(updated);
+    const updated = [...rows];
+    updated[index] = { ...updated[index], [field]: value };
+    setRows(updated);
   };
 
-  // --- Organization Profile (stateful with prefilled remark) ---
-  const [orgProfile, setOrgProfile] = useState(
-    [
-      {
-        desc: 'Commencement of Business & Source of Funding',
-        remark: 'Date of Registration, Date of Commencement, Source of Funding:',
-      },
-      { desc: 'Nature of Business', remark: 'Description of Activities:' },
-      { desc: 'Branch Offices', remark: 'Branch Locations and No of Staff:' },
-      {
-        desc: 'Directors/Proprietors/Trustee',
-        remark: 'Name, Address, Occupation, NIN, BVN, Other Business:',
-      },
-      {
-        desc: 'Managing Director/General Manager (If Different from above)',
-        remark: 'Name, Address, Occupation, NIN, BVN, Other Business:',
-      },
-      {
-        desc: 'Total No. of Employee',
-        remark:
-          'Board Members:\nManagement Staff:\nProfessionals (eg, Lawyers, Accountants, Taxation, etc):\nJunior workers including Security and Cleaners:\nOthers:',
-      },
-      { desc: 'Turn Over', remark: 'Monthly:\nAnnually:' },
-      {
-        desc: 'Tax Remittance',
-        remark:
-          'TIN No, VAT, PAYE, INCOME TAX, Consumption Tax, Withholding Tax, Directors Income, Employee Payroll, Last Payment Date, Amount Paid, Payment Location/Tax Office.\nTax clearance certificate:',
-      },
-      {
-        desc: 'Bank Details',
-        remark: 'Bank, Account No (including domiciliary), Signatories:',
-      },
-      {
-        desc: 'Total Number of Reportable Transactions',
-        remark:
-          'Transaction Type, Name of beneficiary/customer, service, amount, mode of payment and date of transaction:',
-      },
-    ] as { desc: string; remark: string }[]
-  );
-
-  const handleOrgProfileChange = (index: number, value: string) => {
-    const updated = [...orgProfile];
-    updated[index].remark = value;
-    setOrgProfile(updated);
-  };
-
-  // --- Attendance ---
-  const [attendance, setAttendance] = useState([
-    { name: '', organization: '', position: '', phone: '', sign: '' },
-  ]);
-  const addRow = () => {
-    setAttendance([...attendance, { name: '', organization: '', position: '', phone: '', sign: '' }]);
-  };
-
-  const handleAttendanceChange = (
-    index: number,
-    field: keyof (typeof attendance)[0],
-    value: string
-  ) => {
-    const newAttendance = [...attendance];
-    newAttendance[index][field] = value;
-    setAttendance(newAttendance);
-  };
+  // --- Conclusion / Recommendations ---
+  const [conclusionRecommendations, setConclusionRecommendations] = useState('');
 
   const handleSubmit = async () => {
     setSubmitting(true);
@@ -172,10 +94,19 @@ export default function OnSiteInspectionForm({ companyId, onSuccess }: CompanyFo
 
       const payload = {
         company: companyId,
-        obligations,
-        orgProfile,
-        riskClassification: { level: selectedRiskLevel, vulnerabilities: riskVulnerabilities },
-        attendance,
+        coveragePeriod,
+        dateOfExamination,
+        areasCovered,
+        structure,
+        managementTeamInterviewed,
+        documentsRequested,
+        specificFindings,
+        materialException,
+        politicallyExposedPersons,
+        suspiciousTransactionReporting,
+        targetedFinancialSanctions,
+        observations: [...amlObservations, ...tppaObservations],
+        conclusionRecommendations,
       };
 
       await axios.post(
@@ -194,43 +125,172 @@ export default function OnSiteInspectionForm({ companyId, onSuccess }: CompanyFo
     }
   };
 
+  const sectionHeading = (text: string, size = '18px') => (
+    <h2 style={{ fontSize: size, fontWeight: 'bold', marginBottom: '10px' }}>{text}</h2>
+  );
+
   return (
     <Box fontSize="xs">
-      {/* --- Compliance with the Law --- */}
+      {/* --- Cover page --- */}
       <Box mb={10}>
-        <h2 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '10px' }}>
-          Compliance with the Law and Regulation
-        </h2>
+        <Box mb={3}>
+          <Box fontWeight="semibold" mb={1}>Coverage/Period</Box>
+          <Input value={coveragePeriod} onChange={(e) => setCoveragePeriod(e.target.value)} />
+        </Box>
+        <Box mb={3}>
+          <Box fontWeight="semibold" mb={1}>Date of Examination</Box>
+          <Input type="date" value={dateOfExamination} onChange={(e) => setDateOfExamination(e.target.value)} />
+        </Box>
+        <Box mb={3}>
+          <Box fontWeight="semibold" mb={1}>Areas Covered</Box>
+          <Input value={areasCovered} onChange={(e) => setAreasCovered(e.target.value)} />
+        </Box>
+        <Box>
+          <Box fontWeight="semibold" mb={1}>Structure</Box>
+          <Textarea
+            value={structure}
+            onChange={(e) => setStructure(e.target.value)}
+            minH="120px"
+            fontSize={{ base: '2xs', md: 'xs' }}
+          />
+        </Box>
+      </Box>
+
+      {/* --- Risk Assessment --- */}
+      <Box mb={10}>
+        {sectionHeading('Risk Assessment')}
+        <Box mb={4}>
+          <Box fontWeight="semibold" mb={1}>Management Team Interviewed</Box>
+          <Textarea
+            placeholder="Names and roles of management team interviewed..."
+            value={managementTeamInterviewed}
+            onChange={(e) => setManagementTeamInterviewed(e.target.value)}
+            minH="100px"
+            fontSize={{ base: '2xs', md: 'xs' }}
+          />
+        </Box>
+        <Box overflowX="auto">
+          <Table variant="striped" size="sm" minW="700px">
+            <Thead>
+              <Tr>
+                <Th w="50px">S/N</Th>
+                <Th w="300px">Documents Requested</Th>
+                <Th>Documents Provided/Reviewed</Th>
+              </Tr>
+            </Thead>
+            <Tbody>
+              {documentsRequested.map((d, i) => (
+                <Tr key={i}>
+                  <Td>{i + 1}</Td>
+                  <Td fontSize={{ base: '2xs', md: 'xs' }}>{d.document}</Td>
+                  <Td>
+                    <Textarea
+                      value={d.provided}
+                      onChange={(e) => handleDocumentChange(i, e.target.value)}
+                      minH="80px"
+                      w="100%"
+                      fontSize={{ base: '2xs', md: 'xs' }}
+                    />
+                  </Td>
+                </Tr>
+              ))}
+            </Tbody>
+          </Table>
+        </Box>
+      </Box>
+
+      {/* --- Specific Findings --- */}
+      <Box mb={10}>
+        {sectionHeading('Specific Findings')}
+        <Textarea
+          value={specificFindings}
+          onChange={(e) => setSpecificFindings(e.target.value)}
+          minH="150px"
+          fontSize={{ base: '2xs', md: 'xs' }}
+        />
+      </Box>
+
+      {/* --- Material Exception --- */}
+      <Box mb={10}>
+        {sectionHeading('Material Exception')}
+        <Textarea
+          value={materialException}
+          onChange={(e) => setMaterialException(e.target.value)}
+          minH="150px"
+          fontSize={{ base: '2xs', md: 'xs' }}
+        />
+      </Box>
+
+      {/* --- Politically Exposed Persons (PEP) --- */}
+      <Box mb={10}>
+        {sectionHeading('Politically Exposed Persons (PEP)')}
+        <Textarea
+          value={politicallyExposedPersons}
+          onChange={(e) => setPoliticallyExposedPersons(e.target.value)}
+          minH="120px"
+          fontSize={{ base: '2xs', md: 'xs' }}
+        />
+      </Box>
+
+      {/* --- Suspicious Transaction Reporting (STR) --- */}
+      <Box mb={10}>
+        {sectionHeading('Suspicious Transaction Reporting (STR)')}
+        <Textarea
+          value={suspiciousTransactionReporting}
+          onChange={(e) => setSuspiciousTransactionReporting(e.target.value)}
+          minH="120px"
+          fontSize={{ base: '2xs', md: 'xs' }}
+        />
+      </Box>
+
+      {/* --- Targeted Financial Sanctions (TFS) --- */}
+      <Box mb={10}>
+        {sectionHeading('Targeted Financial Sanctions (TFS)')}
+        <Textarea
+          value={targetedFinancialSanctions}
+          onChange={(e) => setTargetedFinancialSanctions(e.target.value)}
+          minH="120px"
+          fontSize={{ base: '2xs', md: 'xs' }}
+        />
+      </Box>
+
+      {/* --- Observations: AML/CFT Requirements --- */}
+      <Box mb={10}>
+        {sectionHeading('Observations')}
+        <Box fontWeight="semibold" mb={2}>AML/CFT Requirements</Box>
         <Box overflowX="auto">
           <Table variant="striped" size="sm" minW="900px">
             <Thead>
               <Tr>
                 <Th w="50px">S/N</Th>
-                <Th w="200px">Obligation</Th>
-                <Th w="400px">Compliance Status</Th>
-                <Th w="500px">Remark/Observation</Th>
+                <Th w="280px">AML/CFT Requirements</Th>
+                <Th w="300px">Observation</Th>
+                <Th>Recommendations/Remedial Action</Th>
               </Tr>
             </Thead>
             <Tbody>
-              {obligations.map((o, i) => (
+              {amlObservations.map((o, i) => (
                 <Tr key={i}>
                   <Td>{i + 1}</Td>
-                  <Td fontSize={{ base: '2xs', md: 'xs' }}>{o.obligation}</Td>
+                  <Td fontSize={{ base: '2xs', md: 'xs' }}>{o.requirement}</Td>
                   <Td>
                     <Textarea
-                      placeholder="Enter compliance status..."
-                      value={o.complianceStatus}
-                      onChange={(e) => handleObligationChange(i, 'complianceStatus', e.target.value)}
-                      minH="150px"
+                      value={o.observation}
+                      onChange={(e) =>
+                        handleObservationChange(amlObservations, setAmlObservations, i, 'observation', e.target.value)
+                      }
+                      minH="120px"
                       w="100%"
                       fontSize={{ base: '2xs', md: 'xs' }}
                     />
                   </Td>
                   <Td>
                     <Textarea
-                      value={o.remark}
-                      onChange={(e) => handleObligationChange(i, 'remark', e.target.value)}
-                      minH="150px"
+                      value={o.recommendation}
+                      onChange={(e) =>
+                        handleObservationChange(amlObservations, setAmlObservations, i, 'recommendation', e.target.value)
+                      }
+                      minH="120px"
                       w="100%"
                       fontSize={{ base: '2xs', md: 'xs' }}
                     />
@@ -242,30 +302,42 @@ export default function OnSiteInspectionForm({ companyId, onSuccess }: CompanyFo
         </Box>
       </Box>
 
-      {/* --- Organization Profile --- */}
+      {/* --- Observations: Terrorism Prevention and Prohibition Act, 2022 --- */}
       <Box mb={10}>
-        <h2 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '10px' }}>
-          Organization Profile
-        </h2>
+        <Box fontWeight="semibold" mb={2}>Terrorism Prevention and Prohibition Act, 2022</Box>
         <Box overflowX="auto">
           <Table variant="striped" size="sm" minW="900px">
             <Thead>
               <Tr>
                 <Th w="50px">S/N</Th>
-                <Th w="200px">Description</Th>
-                <Th w="700px">Remark</Th>
+                <Th w="280px">Requirement</Th>
+                <Th w="300px">Observation</Th>
+                <Th>Recommendations/Remedial Action</Th>
               </Tr>
             </Thead>
             <Tbody>
-              {orgProfile.map((o, i) => (
+              {tppaObservations.map((o, i) => (
                 <Tr key={i}>
                   <Td>{i + 1}</Td>
-                  <Td fontSize={{ base: '2xs', md: 'xs' }}>{o.desc}</Td>
+                  <Td fontSize={{ base: '2xs', md: 'xs' }}>{o.requirement}</Td>
                   <Td>
                     <Textarea
-                      value={o.remark}
-                      onChange={(e) => handleOrgProfileChange(i, e.target.value)}
-                      minH="150px"
+                      value={o.observation}
+                      onChange={(e) =>
+                        handleObservationChange(tppaObservations, setTppaObservations, i, 'observation', e.target.value)
+                      }
+                      minH="120px"
+                      w="100%"
+                      fontSize={{ base: '2xs', md: 'xs' }}
+                    />
+                  </Td>
+                  <Td>
+                    <Textarea
+                      value={o.recommendation}
+                      onChange={(e) =>
+                        handleObservationChange(tppaObservations, setTppaObservations, i, 'recommendation', e.target.value)
+                      }
+                      minH="120px"
                       w="100%"
                       fontSize={{ base: '2xs', md: 'xs' }}
                     />
@@ -277,94 +349,15 @@ export default function OnSiteInspectionForm({ companyId, onSuccess }: CompanyFo
         </Box>
       </Box>
 
-      {/* --- Money Laundering Risk Classification --- */}
+      {/* --- Conclusion/Recommendations --- */}
       <Box mb={10}>
-        <h2 style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '10px' }}>
-          Money Laundering Risk Classification
-        </h2>
-        <Box overflowX="auto">
-          <Table variant="striped" size="sm" minW="700px">
-            <Thead>
-              <Tr>
-                <Th w="300px">Money Laundering Risk Classification</Th>
-                <Th w="200px">Level</Th>
-                <Th>Description of Money Laundering Vulnerabilities</Th>
-              </Tr>
-            </Thead>
-            <Tbody>
-              <Tr>
-                <Td>Select classification</Td>
-                <Td>
-                  <select
-                    style={{ width: '100%' }}
-                    value={selectedRiskLevel}
-                    onChange={(e) => setSelectedRiskLevel(e.target.value as 'low' | 'medium' | 'high')}
-                  >
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                  </select>
-                </Td>
-                <Td>
-                  <Textarea
-                    placeholder="Enter vulnerabilities..."
-                    minH="150px"
-                    w="100%"
-                    fontSize={{ base: '2xs', md: 'xs' }}
-                    value={riskVulnerabilities}
-                    onChange={(e) => setRiskVulnerabilities(e.target.value)}
-                  />
-                </Td>
-              </Tr>
-            </Tbody>
-          </Table>
-        </Box>
-      </Box>
-
-      {/* --- Attendance --- */}
-      <Box mb={10}>
-        <h2 style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '10px' }}>
-          Attendance
-        </h2>
-        <Box overflowX="auto">
-          <Table variant="striped" size="sm" minW="700px">
-            <Thead>
-              <Tr>
-                <Th w="5%">S/N</Th>
-                <Th w="20%">Name</Th>
-                <Th w="20%">Organization</Th>
-                <Th w="15%">Position</Th>
-                <Th w="15%">Phone No.</Th>
-                <Th w="10%">Sign.</Th>
-              </Tr>
-            </Thead>
-            <Tbody>
-              {attendance.map((a, i) => (
-                <Tr key={i}>
-                  <Td>{i + 1}</Td>
-                  <Td>
-                    <Input value={a.name} onChange={(e) => handleAttendanceChange(i, 'name', e.target.value)} fontSize={{ base: '2xs', md: 'xs' }} w="100%" />
-                  </Td>
-                  <Td>
-                    <Input value={a.organization} onChange={(e) => handleAttendanceChange(i, 'organization', e.target.value)} fontSize={{ base: '2xs', md: 'xs' }} w="100%" />
-                  </Td>
-                  <Td>
-                    <Input value={a.position} onChange={(e) => handleAttendanceChange(i, 'position', e.target.value)} fontSize={{ base: '2xs', md: 'xs' }} w="100%" />
-                  </Td>
-                  <Td>
-                    <Input value={a.phone} onChange={(e) => handleAttendanceChange(i, 'phone', e.target.value)} fontSize={{ base: '2xs', md: 'xs' }} w="100%" />
-                  </Td>
-                  <Td>
-                    <Input value={a.sign} onChange={(e) => handleAttendanceChange(i, 'sign', e.target.value)} fontSize={{ base: '2xs', md: 'xs' }} w="100%" />
-                  </Td>
-                </Tr>
-              ))}
-            </Tbody>
-          </Table>
-        </Box>
-        <Button mt={3} size="sm" onClick={addRow} colorScheme="blue">
-          + Add Row
-        </Button>
+        {sectionHeading('Conclusion/Recommendations')}
+        <Textarea
+          value={conclusionRecommendations}
+          onChange={(e) => setConclusionRecommendations(e.target.value)}
+          minH="150px"
+          fontSize={{ base: '2xs', md: 'xs' }}
+        />
       </Box>
 
       {/* --- Submit --- */}

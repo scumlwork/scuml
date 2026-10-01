@@ -38,6 +38,7 @@ import jsPDF from 'jspdf';
 import { useAuth } from '@/context/AuthContext';
 import PrintPortal from '@/components/PrintPortal';
 import PagedA4Document, { type A4Slice, A4_PAGE_HEIGHT_PX, KEEP_TOGETHER_CLASS } from '@/components/PagedA4Document';
+import { AML_CFT_REQUIREMENTS } from '@/lib/onSiteInspectionRequirements';
 
 function ordinalSuffix(day: number) {
   if (day > 3 && day < 21) return 'th';
@@ -86,9 +87,29 @@ type OffSiteData = {
   recommendation?: string;
 };
 
+type DocumentRequest = { document?: string; provided?: string };
+type Observation = { requirement?: string; observation?: string; recommendation?: string };
+
 type OnSiteData = {
   _id: string;
   company?: { companyName?: string; natureOfBusiness?: string } | string;
+
+  // Current (Exam Report) structure
+  coveragePeriod?: string;
+  dateOfExamination?: string;
+  areasCovered?: string;
+  structure?: string;
+  managementTeamInterviewed?: string;
+  documentsRequested?: DocumentRequest[];
+  specificFindings?: string;
+  materialException?: string;
+  politicallyExposedPersons?: string;
+  suspiciousTransactionReporting?: string;
+  targetedFinancialSanctions?: string;
+  observations?: Observation[];
+  conclusionRecommendations?: string;
+
+  // Legacy (pre-redesign) structure — only present on older records
   obligations?: Obligation[];
   orgProfile?: OrgProfile[];
   riskClassification?: { level?: string; vulnerabilities?: string };
@@ -480,6 +501,93 @@ function GeneratedInspectionReport({
 
           {/* On-Site Inspection entries */}
           {onSite && (
+           (onSite.observations && onSite.observations.length > 0) ||
+           (onSite.documentsRequested && onSite.documentsRequested.length > 0) ? (
+            <Box mb={6}>
+              <Field label="Company" value={companyName || 'N/A'} />
+              {onSite.coveragePeriod && <Field label="Coverage/Period" value={onSite.coveragePeriod} />}
+              {onSite.dateOfExamination && <Field label="Date of Examination" value={onSite.dateOfExamination} />}
+              {onSite.areasCovered && <Field label="Areas Covered" value={onSite.areasCovered} />}
+              {onSite.structure && <Field label="Structure" value={onSite.structure} />}
+
+              {onSite.managementTeamInterviewed && (
+                <Field label="Management Team Interviewed" value={onSite.managementTeamInterviewed} />
+              )}
+
+              {Array.isArray(onSite.documentsRequested) && onSite.documentsRequested.length > 0 && (
+                <>
+                  <Text fontWeight="bold" mt={3} mb={2}>Documents Requested</Text>
+                  <Table size="sm" variant="simple" fontFamily="Georgia, serif" mb={3}>
+                    <Thead>
+                      <Tr><Th>Documents Requested</Th><Th>Documents Provided/Reviewed</Th></Tr>
+                    </Thead>
+                    <Tbody>
+                      {onSite.documentsRequested.map((d, idx) => (
+                        <Tr key={idx} className={KEEP_TOGETHER_CLASS}>
+                          <Td>{d.document || 'N/A'}</Td>
+                          <Td>{d.provided || 'N/A'}</Td>
+                        </Tr>
+                      ))}
+                    </Tbody>
+                  </Table>
+                </>
+              )}
+
+              {onSite.specificFindings && <Field label="Specific Findings" value={onSite.specificFindings} />}
+              {onSite.materialException && <Field label="Material Exception" value={onSite.materialException} />}
+              {onSite.politicallyExposedPersons && (
+                <Field label="Politically Exposed Persons (PEP)" value={onSite.politicallyExposedPersons} />
+              )}
+              {onSite.suspiciousTransactionReporting && (
+                <Field label="Suspicious Transaction Reporting (STR)" value={onSite.suspiciousTransactionReporting} />
+              )}
+              {onSite.targetedFinancialSanctions && (
+                <Field label="Targeted Financial Sanctions (TFS)" value={onSite.targetedFinancialSanctions} />
+              )}
+
+              {Array.isArray(onSite.observations) && onSite.observations.length > 0 && (
+                <>
+                  <Text fontWeight="bold" mt={3} mb={2}>Observations — AML/CFT Requirements</Text>
+                  <Table size="sm" variant="simple" fontFamily="Georgia, serif" mb={3}>
+                    <Thead>
+                      <Tr><Th>Requirement</Th><Th>Observation</Th><Th>Recommendations/Remedial Action</Th></Tr>
+                    </Thead>
+                    <Tbody>
+                      {onSite.observations.slice(0, AML_CFT_REQUIREMENTS.length).map((o, idx) => (
+                        <Tr key={idx} className={KEEP_TOGETHER_CLASS}>
+                          <Td>{o.requirement || 'N/A'}</Td>
+                          <Td>{o.observation || 'N/A'}</Td>
+                          <Td>{o.recommendation || 'N/A'}</Td>
+                        </Tr>
+                      ))}
+                    </Tbody>
+                  </Table>
+
+                  <Text fontWeight="bold" mb={2}>
+                    Observations — Terrorism Prevention and Prohibition Act, 2022
+                  </Text>
+                  <Table size="sm" variant="simple" fontFamily="Georgia, serif" mb={3}>
+                    <Thead>
+                      <Tr><Th>Requirement</Th><Th>Observation</Th><Th>Recommendations/Remedial Action</Th></Tr>
+                    </Thead>
+                    <Tbody>
+                      {onSite.observations.slice(AML_CFT_REQUIREMENTS.length).map((o, idx) => (
+                        <Tr key={idx} className={KEEP_TOGETHER_CLASS}>
+                          <Td>{o.requirement || 'N/A'}</Td>
+                          <Td>{o.observation || 'N/A'}</Td>
+                          <Td>{o.recommendation || 'N/A'}</Td>
+                        </Tr>
+                      ))}
+                    </Tbody>
+                  </Table>
+                </>
+              )}
+
+              {onSite.conclusionRecommendations && (
+                <Field label="Conclusion/Recommendations" value={onSite.conclusionRecommendations} />
+              )}
+            </Box>
+          ) : (
             <Box mb={6}>
               <Field label="Company" value={companyName || 'N/A'} />
 
@@ -548,7 +656,7 @@ function GeneratedInspectionReport({
                 <Text>N/A</Text>
               )}
             </Box>
-          )}
+          ))}
 
       <Box mt={8} className={KEEP_TOGETHER_CLASS}>
         <Box mb={4}>
