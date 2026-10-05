@@ -48,6 +48,7 @@ import { LGA_BY_STATE } from "@/lib/nigeriaLocations";
 import { NATURE_OF_BUSINESS_OPTIONS } from "@/lib/natureOfBusiness";
 import ChatThread from "@/components/ChatThread";
 import OffsiteDocumentPanel from "@/components/OffsiteDocumentPanel";
+import ComplianceOfficersList from "@/components/ComplianceOfficersList";
 import OnSiteInspectionDetails, { type OnSiteInspectionLike } from "@/components/OnSiteInspectionDetails";
 import { AML_CFT_REQUIREMENTS } from "@/lib/onSiteInspectionRequirements";
 
@@ -1906,6 +1907,23 @@ const handleSaveEdit = async () => {
                     >
                       View Photos ({selectedCompany.photos.length})
                     </Link>
+                  )}
+
+                  {selectedCompany.complianceOfficers && selectedCompany.complianceOfficers.length > 0 && (
+                    <ComplianceOfficersList
+                      companyId={selectedCompany._id}
+                      officers={selectedCompany.complianceOfficers}
+                      canEdit
+                      headingSize="md"
+                      headingColor="gray.700"
+                      onChange={(updated) => {
+                        const newRegs = registrations.map((r) =>
+                          r._id === selectedCompany._id ? { ...r, complianceOfficers: updated } : r
+                        );
+                        setRegistrations(newRegs);
+                        setSelectedCompany(newRegs.find((r) => r._id === selectedCompany._id) || null);
+                      }}
+                    />
                   )}
 
                   <Text fontSize="xs" color="gray.500">

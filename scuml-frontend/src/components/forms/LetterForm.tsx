@@ -4,9 +4,6 @@ import {
   Button,
   Input,
   Textarea,
-  Text,
-  HStack,
-  Box,
   FormControl,
   FormLabel,
   VStack,
@@ -14,8 +11,6 @@ import {
 } from '@chakra-ui/react';
 import { useState, useRef } from 'react';
 import axios from 'axios';
-
-type Contact = { name: string; position: string; phone: string; email: string };
 
 // Shared props across every "add a record to this company" form — used both
 // on its own standalone page (after a company search/select step) and
@@ -51,19 +46,11 @@ function buildGoogleCalendarUrl(companyName: string, dateStr: string, remark: st
 
 export default function LetterForm({ companyName, onSuccess }: CompanyFormProps) {
   const toast = useToast();
-  const [contacts, setContacts] = useState<Contact[]>([{ name: '', position: '', phone: '', email: '' }]);
   const [remark, setRemark] = useState('');
   const [dateOfReporting, setDateOfReporting] = useState(today);
   const [photos, setPhotos] = useState<FileList | null>(null);
   const photosInputRef = useRef<HTMLInputElement>(null);
   const [submitting, setSubmitting] = useState(false);
-
-  const updateContact = (index: number, field: keyof Contact, value: string) => {
-    setContacts((prev) => prev.map((c, i) => (i === index ? { ...c, [field]: value } : c)));
-  };
-  const addContact = () => setContacts((prev) => [...prev, { name: '', position: '', phone: '', email: '' }]);
-  const removeContact = (index: number) =>
-    setContacts((prev) => prev.filter((_, i) => i !== index));
 
   const uploadPhotosInBackground = async (letterId: string, csrfToken: string) => {
     if (!photos || photos.length === 0) return;
@@ -90,8 +77,6 @@ export default function LetterForm({ companyName, onSuccess }: CompanyFormProps)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const validContacts = contacts.filter((c) => c.name.trim() && c.phone.trim());
-
     setSubmitting(true);
 
     // Open the calendar tab synchronously, inside the click's trusted-event
@@ -111,7 +96,6 @@ export default function LetterForm({ companyName, onSuccess }: CompanyFormProps)
         `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/letters`,
         {
           companyName,
-          contacts: validContacts,
           remark,
           dateOfReporting,
         },
@@ -160,58 +144,6 @@ export default function LetterForm({ companyName, onSuccess }: CompanyFormProps)
           <FormLabel>Company Name</FormLabel>
           <Input value={companyName} isReadOnly cursor="not-allowed" bg="gray.100" />
         </FormControl>
-
-        <Box>
-          <FormLabel>Contact Persons</FormLabel>
-          <VStack spacing={3} align="stretch">
-            {contacts.map((contact, index) => (
-              <Box key={index} borderWidth="1px" borderRadius="md" p={3}>
-                <HStack justify="space-between" mb={2}>
-                  <Text fontSize="sm" fontWeight="semibold">Contact {index + 1}</Text>
-                  {contacts.length > 1 && (
-                    <Button type="button" size="xs" variant="ghost" colorScheme="red" onClick={() => removeContact(index)}>
-                      Remove
-                    </Button>
-                  )}
-                </HStack>
-                <VStack spacing={2} align="stretch">
-                  <FormControl>
-                    <FormLabel fontSize="sm">Name</FormLabel>
-                    <Input
-                      value={contact.name}
-                      onChange={(e) => updateContact(index, 'name', e.target.value)}
-                    />
-                  </FormControl>
-                  <FormControl>
-                    <FormLabel fontSize="sm">Position</FormLabel>
-                    <Input
-                      value={contact.position}
-                      onChange={(e) => updateContact(index, 'position', e.target.value)}
-                    />
-                  </FormControl>
-                  <FormControl>
-                    <FormLabel fontSize="sm">Phone</FormLabel>
-                    <Input
-                      value={contact.phone}
-                      onChange={(e) => updateContact(index, 'phone', e.target.value)}
-                    />
-                  </FormControl>
-                  <FormControl>
-                    <FormLabel fontSize="sm">Email</FormLabel>
-                    <Input
-                      type="email"
-                      value={contact.email}
-                      onChange={(e) => updateContact(index, 'email', e.target.value)}
-                    />
-                  </FormControl>
-                </VStack>
-              </Box>
-            ))}
-          </VStack>
-          <Button type="button" size="sm" variant="outline" mt={2} onClick={addContact}>
-            + Add Contact Person
-          </Button>
-        </Box>
 
         <FormControl>
           <FormLabel>Appointment Remark</FormLabel>
