@@ -682,26 +682,26 @@ function ViolationNoticeLetter({
             ))}
           </Box>
 
-          <Text fontWeight="bold" textDecoration="underline" mb={1} textAlign="center">
+          <Text fontWeight="bold" textDecoration="underline" mb={8} textAlign="center">
             NOTICE OF PENALTIES FOR NON-COMPLIANCE WITH THE PROVISION MONEY LAUNDERING ACT,
             2022 &amp; EFCC (AML/CFT/CPF FOR DNFBPs) REGULATION 2022
           </Text>
 
-          <Text mb={1} textAlign="justify">
+          <Text mb={8} textAlign="justify">
             In line with the mandate of Special Control Unit against Money Laundering (SCUML)
             for the Monitoring, Supervision and Regulation of Designated Non – Financial
             Businesses and Professions (DNFBPs) against Money Laundering and Financing of
             Terrorism.
           </Text>
 
-          <Text mb={1} textAlign="justify">
+          <Text mb={8} textAlign="justify">
             <b>2.</b> The Inspection exercise conducted on your organisation on the {todayStr}{' '}
             revealed that your organisation is not complying with the Provisions of Money
             Laundering (Prevention and Prohibition) Act, 2022 and Economic and Financial Crimes
             Commission (AML/CFT/CPF for DNFBPs) Regulation 2022.
           </Text>
 
-          <Text mb={1}>
+          <Text mb={4}>
             <b>3.</b> Below is the breakdown of breach identified and applicable sanction/penalties.
           </Text>
 
@@ -732,7 +732,7 @@ function ViolationNoticeLetter({
             </Table>
           </Box>
 
-          <Text mb={1} textAlign="justify">
+          <Text mb={8} textAlign="justify">
             <b>4.</b> In view of the above, you are required to take necessary steps to address
             all non-compliance issues raised during the inspection exercise and to pay to the
             Federal Government of Nigeria through Bank draft in the name of{' '}
@@ -744,7 +744,7 @@ function ViolationNoticeLetter({
             license or cancellation of business registration and possible prosecution.
           </Text>
 
-          <Text mb={1} textAlign="justify">
+          <Text mb={8} textAlign="justify">
             <b>5.</b> This request is made pursuant to the provision of section 17(2)(a-h) of
             Money Laundering (Prevention and Prohibition) Act, 2022 and 39(2 &amp; 8) of EFCC
             (AML/CFT/CPF for DNFBPs) Regulation 2022.

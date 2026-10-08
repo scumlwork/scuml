@@ -414,14 +414,9 @@ function GeneratedReply({
             {subject || 'N/A'}
           </Text>
 
-          {/* Blank lines between paragraphs collapse to a small gap instead of a full empty line. */}
-          <Box mb={4}>
-            {message.split(/\n\s*\n/).map((para, i) => (
-              <Text key={i} whiteSpace="pre-wrap" textAlign="justify" mb={0.5}>
-                {para}
-              </Text>
-            ))}
-          </Box>
+          <Text whiteSpace="pre-wrap" textAlign="justify" mb={8}>
+            {message}
+          </Text>
 
           <Box mt="auto">
             <Image

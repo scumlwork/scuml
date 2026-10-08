@@ -512,11 +512,11 @@ function LetterOfInvitationBody({ reportingDateStr }: { reportingDateStr: string
   return (
     <>
       <Text fontWeight="bold" textDecoration="underline" mb={0}>LETTER OF INVITATION</Text>
-      <Text fontWeight="bold" textDecoration="underline" mb={1}>
+      <Text fontWeight="bold" textDecoration="underline" mb={8}>
         ANTI- MONEY LAUNDERING COMPLIANCE EXAMINATION
       </Text>
 
-      <Text mb={1} textAlign="justify">
+      <Text mb={8} textAlign="justify">
         In accordance with the provisions of Money Laundering (Prevention and Prohibition) Act,
         2022, we wish to inform you that the Commission will conduct a compliance examination on
         your organization. The purpose of the examination is to ascertain your level of compliance
@@ -525,17 +525,17 @@ function LetterOfInvitationBody({ reportingDateStr }: { reportingDateStr: string
         Professions Regulation, 2022.
       </Text>
 
-      <Text mb={1} textAlign="justify">
+      <Text mb={8} textAlign="justify">
         <b>2.</b> In view of the above, you are requested to report alongside with any other
         registered director of the company to the Head, SCUML Benin on {reportingDateStr} at{" "}
         <b>No. 1A High Court Road, G.R.A, Benin – City, Edo State.</b>
       </Text>
 
-      <Text mb={1}>
+      <Text mb={8}>
         <b>3.</b> Kindly provide soft copies (in flash drive) of the following documents for the examination.
       </Text>
 
-      <Text mb={1}>i. Corporate Affairs Commission (CAC) Registration documents.</Text>
+      <Text mb={8}>i. Corporate Affairs Commission (CAC) Registration documents.</Text>
 
       <Text textAlign="center" color="red.600" fontWeight="bold" mt="auto">
         www.scuml.org
@@ -547,7 +547,7 @@ function LetterOfInvitationBody({ reportingDateStr }: { reportingDateStr: string
 function LetterOfInvitationPage2() {
   return (
     <>
-      <VStack align="stretch" spacing={0} mb={1}>
+      <VStack align="stretch" spacing={7} mb={8}>
         <Text>ii. Special Control Unit against Money Laundering (SCUML) Registration Certificate.</Text>
         <Text>iii. Copies of Transaction Reports File to SCUML.</Text>
         <Text>iv. Three years statement of all your bank accounts including domiciliary accounts.</Text>
@@ -566,13 +566,13 @@ function LetterOfInvitationPage2() {
         </Text>
       </VStack>
 
-      <Text mb={1} textAlign="justify">
+      <Text mb={8} textAlign="justify">
         <b>4.</b> This request is made pursuant to <b>Section 38(1) &amp; (2) of the Economic and
         Financial Crime Commission (Establishment) Act, 2004 and Section 11 &amp; 17 of the Money
         Laundering (Prohibition &amp; Prevention) Act, 2022.</b>
       </Text>
 
-      <Text mb={1}>
+      <Text mb={8}>
         <b>5.</b> Your cooperation in this regard would be highly appreciated, please.
       </Text>
 
@@ -586,33 +586,35 @@ function LetterOfInvitationPage2() {
 function WarningLetterBody({ reportingDateStr }: { reportingDateStr: string }) {
   return (
     <>
-      <Text fontWeight="bold" textDecoration="underline" mb={1}>
+      <Text fontWeight="bold" textDecoration="underline" mb={8}>
         FINAL ANTI- MONEY LAUNDERING COMPLIANCE EXAMINATION NOTICE
       </Text>
 
-      <Text mb={1} textAlign="justify">
+      <Text mb={8} textAlign="justify">
         The Special Control Unit against Money Laundering (SCUML) has observed that you did not
         honor the invitation extended to your organization.
       </Text>
 
-      <Text mb={1} textAlign="justify">
+      <Text mb={8} textAlign="justify">
         <b>2.</b> In view of the above, you are to report alongside with the registered
         Director(s) of the Company to the Head, SCUML Benin on {reportingDateStr} at{" "}
         <b>No. 1A High Court Road, G.R.A, Benin – City, Edo State.</b>
       </Text>
 
-      <Text mb={1} textAlign="justify">
-        <b>3.</b> Failure to comply would attract <b>Legal/Administrative Sanctions</b> includes;
-        closure of business premises, recommendation for withdrawal of business licenses or
-        cancelation of business registration and possible prosecution in accordance with the
-        provision of Economic and Financial Crimes (Anti-Money Laundering Regulations 2024).
+      <Text mb={8} textAlign="justify">
+        <b>3.</b> Failure to comply would attract the Legal / Administrative Sanction and
+        Possible Prosecution in accordance with Economic and Financial Crimes (Establishment)
+        Act, 2024, Money Laundering (prevention &amp; Prohibition) Act, 2022 and Economic and
+        Financial Crimes Commission ( Anti- Money Laundering Regulation for Designated Non -
+        Financial Businesses and Professions), 2024.
       </Text>
 
-      <Text mb={1}>
-        <b>4.</b> Kindly provide copies of the following documents for the examination.
+      <Text mb={8}>
+        <b>4.</b> Kindly Provide Soft Copies (In a Flash Drive) of the following documents for
+        the examination.
       </Text>
 
-      <Text mb={1}>i. Corporate Affairs Commission (CAC) Registration documents.</Text>
+      <Text mb={8}>i. Corporate Affairs Commission (CAC) Registration documents.</Text>
 
       <Text textAlign="center" color="red.600" fontWeight="bold" mt="auto">
         www.scuml.org
@@ -624,7 +626,7 @@ function WarningLetterBody({ reportingDateStr }: { reportingDateStr: string }) {
 function WarningLetterPage2() {
   return (
     <>
-      <VStack align="stretch" spacing={0} mb={1}>
+      <VStack align="stretch" spacing={7} mb={8}>
         <Text>ii. Special Control Unit against Money Laundering (SCUML) Registration Certificate.</Text>
         <Text>iii. Copies of Transaction Reports File to SCUML.</Text>
         <Text>iv. Three years statement of all your bank accounts including domiciliary accounts.</Text>
@@ -640,13 +642,13 @@ function WarningLetterPage2() {
         </Text>
       </VStack>
 
-      <Text mb={1} textAlign="justify">
+      <Text mb={8} textAlign="justify">
         <b>5.</b> This request is made pursuant to <b>Section 38(1) &amp; (2) of the Economic and
         Financial Crime Commission (Establishment) Act, 2004 and Section 11 &amp; 17 of the Money
         Laundering (Prohibition &amp; Prevention) Act, 2022.</b>
       </Text>
 
-      <Text mb={1}>
+      <Text mb={8}>
         <b>6.</b> Your cooperation in this regard would be highly appreciated, please.
       </Text>
 

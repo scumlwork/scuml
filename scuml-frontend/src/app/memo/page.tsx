@@ -426,14 +426,9 @@ function GeneratedMemo({
         </HStack>
       </VStack>
 
-      {/* Blank lines between paragraphs collapse to a small gap instead of a full empty line. */}
-      <Box mb={4}>
-        {message.split(/\n\s*\n/).map((para, i) => (
-          <Text key={i} whiteSpace="pre-wrap" textAlign="justify" mb={0.5}>
-            {para}
-          </Text>
-        ))}
-      </Box>
+      <Text whiteSpace="pre-wrap" textAlign="justify" mb={8}>
+        {message}
+      </Text>
 
       <Box mt={8} className={KEEP_TOGETHER_CLASS}>
         <Box mb={4}>
