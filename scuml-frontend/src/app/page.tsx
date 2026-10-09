@@ -745,18 +745,18 @@ const [selectedRegistration, setSelectedRegistration] = useState<Registration | 
   boxSizing="border-box"
 >
   {[
-    { label: "Admin", path: "database", superadminOnly: true, ownerOnly: false, guestVisible: false },      // ✅ links to /database
+    { label: "Registration", path: "registration", superadminOnly: false, ownerOnly: false, guestVisible: true }, // links to /registration
+    { label: "Memo/Letter", path: "memo-drafts", superadminOnly: false, ownerOnly: false, guestVisible: false },
     { label: "Analysis", path: "analysis", superadminOnly: true, ownerOnly: false, guestVisible: false },
+    { label: "Minutes", path: "messages", superadminOnly: false, ownerOnly: false, guestVisible: true },
+    { label: "User", path: "register", superadminOnly: true, ownerOnly: false, guestVisible: false },
     { label: "Library", path: "library", superadminOnly: true, ownerOnly: false, guestVisible: false },
+    { label: "Admin", path: "database", superadminOnly: true, ownerOnly: false, guestVisible: false }, // links to /database
     { label: "Audit Log", path: "audit-log", superadminOnly: true, ownerOnly: true, guestVisible: false },
-    { label: "Registration", path: "registration", superadminOnly: false, ownerOnly: false, guestVisible: true }, // ✅ links to /registration
     // Off-Site/On-Site Inspection, Violations, Sanctions Registration,
     // Training Records, and Actions were removed from here — every one of
     // them is already reachable from inside a company's Compliance Record
     // ("Add Actions"), so a separate sidebar button was pure duplication.
-    { label: "User", path: "register", superadminOnly: true, ownerOnly: false, guestVisible: false },
-    { label: "Memo/Letter", path: "memo-drafts", superadminOnly: false, ownerOnly: false, guestVisible: false },
-    { label: "Minutes", path: "messages", superadminOnly: false, ownerOnly: false, guestVisible: true },
   ]
     .filter((item) => !item.superadminOnly || user.role === "superadmin")
     .filter((item) => !item.ownerOnly || user.isOwner)
